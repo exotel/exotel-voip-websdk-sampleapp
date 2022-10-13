@@ -15,6 +15,7 @@ import Box from '@mui/material/Box';
 import Grid from '@mui/material/Grid';
 import Stack from '@mui/material/Stack';
 import { styled } from '@mui/material/styles';
+import { ExotelWebClient as exWebClient} from '@exotel-npm-dev/webrtc-client-sdk/src/listeners/ExWebClient';
 
 const Item = styled(Paper)(({ theme }) => ({
   backgroundColor: theme.palette.mode === 'dark' ? '#1A2027' : '#fff',
@@ -45,7 +46,6 @@ function App() {
   
   var registrationRef = useRef(null);
   var callRef = useRef(null);
-  var exWebClient = require('@exotel-npm-dev/webrtc-client-sdk/src/listeners/ExWebClient').ExotelWebClient;
   
   useEffect(() => {
     if (!configUpdated) {
