@@ -8,6 +8,7 @@
         "Password":"<VOIP Password>",
         "CallTimeout":1000,
         "Security": "wss",
+        "EndPoint": "wss",
         "AccountSID":"<Your Account SID>",
         "AccountNo":"<VOIP Username>",
         "AutoRegistration": true
