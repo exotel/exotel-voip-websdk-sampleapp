@@ -1,16 +1,16 @@
 [
     {
-        "Username":"ashishrb544b97d",
-        "DisplayName":"Ashish",
-        "HostServer":"voip.exotel.in",
-        "Domain":"ccplexopoc1m.voip.exotel.com",
+        "Username":"<VOIP Username>",
+        "DisplayName":"<Display Name>",
+        "HostServer":"<VOIP Proxy Address>",
+        "Domain":"<VOIP Domain Address>",
         "Port":443,
-        "Password":"test1234",
+        "Password":"<VOIP Password>",
         "CallTimeout":1000,
         "Security": "wss",
         "EndPoint": "wss",
-        "AccountSID":"exotelt1",
-        "AccountNo":"ashishrb544b97d",
+        "AccountSID":"<Your Account SID>",
+        "AccountNo":"<VOIP Username>",
         "AutoRegistration": true
     }            
 ]
