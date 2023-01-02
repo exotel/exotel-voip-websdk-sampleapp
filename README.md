@@ -1,12 +1,11 @@
-# exotel-voip-websdk-sampleapp
-This is a basic sample application to showcase Exotel VOIP Websdk API integrations. Using this sample app you can have a demo of voip calling functionalities in the browser. This sample application works with exotel platform. Contact us to get an account.
+# demo-npm
+This is a basic npm based sample application to showcase Exotel VOIP Websdk API integrations. This demo uses npm library of exotel sdk.
+
+# demo-non-npm
+This is a basic non npm based sample application to showcase Exotel VOIP Websdk API integrations. This demo uses bundled exotel sdk .
 
 # Exotel Voice WebSDK
-This sample application requires a websdk package to work. Contact us to get the credentials to download the node.js package of the websdk. Follow the instructions provided in Exotel-Voice-Websdk-Integration-Guide.pdf.
+This sample application requires a websdk package to work. Contact us to get the credentials to download the node.js package of the websdk. Follow the instructions provided in 
 
-# Exotel Voice WebSDK Integration Guide
-File: Exotel-Voice-Websdk-Integration-Guide.pdf
 
-# Exotel Voice WebSDK API documentation
-File: Exotel-Voice-Websdk-Integration-Guide.pdf
 
