@@ -1,6 +1,6 @@
 /*!
  * 
- * WebRTC CLient SIP version 1.0.3
+ * WebRTC CLient SIP version 1.0.4
  *
  */
 (function webpackUniversalModuleDefinition(root, factory) {
@@ -1388,7 +1388,7 @@ function ExDelegationHandler(exClient_) {
     if (sipMethod == "CONNECTION") {
       exClient.registerEventCallback(eventType, exClient.userName);
     } else if (sipMethod == "CALL") {
-      exClient.callEventCallback(eventType, exClient.userName, exClient.call);
+      exClient.callEventCallback(eventType, exClient.callFromNumber, exClient.call);
     }
   };
   this.playBeepTone = function () {
@@ -1439,8 +1439,9 @@ function ExDelegationHandler(exClient_) {
   this.stopCallStat = function () {
     logger.log("delegationHandler: stopCallStat\n");
   };
-  this.onRecieveInvite = function () {
+  this.onRecieveInvite = function (incomingSession) {
     logger.log("delegationHandler: onRecieveInvite\n");
+    exClient.callFromNumber = incomingSession.incomingInviteRequest.message.from.displayName;
   };
   this.onPickCall = function () {
     logger.log("delegationHandler: onPickCall\n");
@@ -1474,6 +1475,7 @@ class ExotelWebClient {
   call = null;
   eventListener = null;
   callListener = null;
+  callFromNumber = null;
   /* OLD-Way to be revisited for multile phone support */
   //this.webRTCPhones = {};
 
@@ -1907,15 +1909,9 @@ function SessionListener() {
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "name": () => (/* binding */ name),
-/* harmony export */   "version": () => (/* binding */ version),
 /* harmony export */   "webrtcSIPPhone": () => (/* reexport safe */ _src_webrtcSIPPhone__WEBPACK_IMPORTED_MODULE_0__.webrtcSIPPhone)
 /* harmony export */ });
 /* harmony import */ var _src_webrtcSIPPhone__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./src/webrtcSIPPhone */ "../webrtc-core-sdk/src/webrtcSIPPhone.js");
-var pkg = __webpack_require__(/*! ./package.json */ "../webrtc-core-sdk/package.json");
-const version = pkg.version;
-const name = "webrtcsdk.js";
-
 
 
 /***/ }),
@@ -8154,7 +8150,7 @@ function registerPhoneEventListeners() {
   });
   ctxSip.phone.delegate.onInvite = incomingSession => {
     if (ctxSip.callActiveID == null) {
-      _webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].onRecieveInvite();
+      _webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].onRecieveInvite(incomingSession);
       _webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].sendWebRTCEventsToFSM("i_new_call", "CALL");
       var s = incomingSession;
       s.direction = 'incoming';
@@ -8945,9 +8941,9 @@ const webrtcSIPPhoneEventDelegate = {
       delegate.stopCallStat();
     }
   },
-  onRecieveInvite: () => {
+  onRecieveInvite: incomingSession => {
     if (delegate) {
-      delegate.onRecieveInvite();
+      delegate.onRecieveInvite(incomingSession);
     }
   },
   onPickCall: () => {
@@ -9198,28 +9194,6 @@ module.exports = __webpack_require__.p + "ringbacktone.wav";
 "use strict";
 module.exports = __webpack_require__.p + "ringtone.wav";
 
-/***/ }),
-
-/***/ "./package.json":
-/*!**********************!*\
-  !*** ./package.json ***!
-  \**********************/
-/***/ ((module) => {
-
-"use strict";
-module.exports = JSON.parse('{"name":"@exotel-npm-dev/webrtc-client-sdk","version":"1.0.3","description":"client sdk for webrtc based on webrtc core sdk","main":"index.js","scripts":{"test":"echo \\"Error: no test specified\\" && exit 1","build":"webpack --config webpack.config.js"},"repository":{"type":"git","url":"git+https://bitbucket.org/Exotel/webrtc-sdk.git"},"keywords":["webrtc"],"author":"exotel","license":"ISC","bugs":{"url":"https://bitbucket.org/Exotel/webrtc/issues"},"homepage":"https://bitbucket.org/Exotel/webrtc#readme","dependencies":{"@exotel-npm-dev/webrtc-core-sdk":"^1.0.0"},"devDependencies":{"babel-loader":"^8.2.5","circular-dependency-plugin":"^5.2.2","file-loader":"^6.2.0","uuid":"^9.0.0","webpack":"^5.74.0","webpack-cli":"^4.10.0"}}');
-
-/***/ }),
-
-/***/ "../webrtc-core-sdk/package.json":
-/*!***************************************!*\
-  !*** ../webrtc-core-sdk/package.json ***!
-  \***************************************/
-/***/ ((module) => {
-
-"use strict";
-module.exports = JSON.parse('{"name":"@exotel-npm-dev/webrtc-core-sdk","version":"1.0.3","description":"core sdk for webrtc based in sip-0.20.0.js","main":"index.js","scripts":{"test":"echo \\"Error: no test specified\\" && exit 1","build":"webpack --config webpack.config.js"},"repository":{"type":"git","url":"git+https://bitbucket.org/Exotel/webrtc-sdk.git"},"keywords":["webrtc"],"author":"exotel","license":"ISC","bugs":{"url":"https://bitbucket.org/Exotel/webrtc/issues"},"homepage":"https://bitbucket.org/Exotel/webrtc#readme","devDependencies":{"babel-loader":"^8.2.5","circular-dependency-plugin":"^5.2.2","file-loader":"^6.2.0","webpack":"^5.74.0","webpack-cli":"^5.0.1"}}');
-
 /***/ })
 
 /******/ 	});
@@ -9324,9 +9298,6 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "ExotelWebClient": () => (/* reexport safe */ _src_listeners_ExWebClient__WEBPACK_IMPORTED_MODULE_0__.ExotelWebClient)
 /* harmony export */ });
 /* harmony import */ var _src_listeners_ExWebClient__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./src/listeners/ExWebClient */ "./src/listeners/ExWebClient.js");
-var pkg = __webpack_require__(/*! ./package.json */ "./package.json");
-const version = pkg.version;
-const name = "exotel.js";
 
 })();
 
