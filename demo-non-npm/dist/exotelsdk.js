@@ -1,6 +1,6 @@
 /*!
  * 
- * WebRTC CLient SIP version 1.0.5
+ * WebRTC CLient SIP version 1.0.6
  *
  */
 (function webpackUniversalModuleDefinition(root, factory) {
@@ -8151,11 +8151,11 @@ function registerPhoneEventListeners() {
   });
   ctxSip.phone.delegate.onInvite = incomingSession => {
     if (ctxSip.callActiveID == null) {
-      _webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].onRecieveInvite(incomingSession);
-      _webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].sendWebRTCEventsToFSM("i_new_call", "CALL");
       var s = incomingSession;
       s.direction = 'incoming';
       ctxSip.newSession(s);
+      _webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].onRecieveInvite(incomingSession);
+      _webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].sendWebRTCEventsToFSM("i_new_call", "CALL");
     } else {
       incomingSession.reject();
     }
