@@ -428,6 +428,7 @@ function App() {
     setTabValue(newValue);
   };
 
+  shouldAutoRetry = false;
   /* Event Handlers */
   const registerHandler = () => {
     registrationRef.current = "Sent register request:" + phone.Username;
