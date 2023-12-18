@@ -38,6 +38,11 @@ The demos will run in Chrome, Firefox, or other web browsers which supports WebR
 
 In your web browser, open the `index.html` file in this directory to run the demos.
 
+## how to run sample with http-server 
+
+openssl req -newkey rsa:2048 -new -nodes -x509 -days 3650 -keyout key.pem -out cert.pem
+http-server  -S 
+
 
 ## Development
 
