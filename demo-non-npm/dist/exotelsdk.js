@@ -1,6 +1,6 @@
 /*!
  * 
- * WebRTC CLient SIP version 1.0.6
+ * WebRTC CLient SIP version 1.0.7
  *
  */
 (function webpackUniversalModuleDefinition(root, factory) {
@@ -1704,6 +1704,47 @@ class ExotelWebClient {
      * Store the intervalID against a map
      */
     intervalIDMap.set(userName, intervalId);
+  };
+  checkClientStatus = callback => {
+    // using this function , first it will check mic permission is given or not
+    // then it will check if transport is intialize or not
+    // then it will check if user is registered or not
+    // based on this we can evaludate SDK is ready for call
+    var constraints = {
+      audio: true,
+      video: false
+    };
+    navigator.mediaDevices.getUserMedia(constraints).then(function (mediaStream) {
+      var transportState = _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_9__.webrtcSIPPhone.getTransportState();
+      switch (transportState) {
+        case "":
+          callback("not_intialized");
+          break;
+        case "unknown":
+        case "Connecting":
+          callback(transportState);
+          break;
+        default:
+          var registerationState = _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_9__.webrtcSIPPhone.getRegistrationState();
+          switch (registerationState) {
+            case "":
+              callback("websocket_connection_failed");
+              break;
+            case "Registered":
+              if (transportState != "Connected") {
+                callback("Disconnected");
+              } else {
+                callback(registerationState);
+              }
+              break;
+            default:
+              callback(registerationState);
+          }
+      }
+    }).catch(function (error) {
+      console.log("something went wrong during checkClientStatus ", error);
+      callback("media_permission_denied");
+    });
   };
 }
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (ExotelWebClient);
@@ -7727,6 +7768,8 @@ __webpack_require__.r(__webpack_exports__);
 
 var SIP = __webpack_require__(/*! ./sip-0.20.0.js */ "../webrtc-core-sdk/src/sip-0.20.0.js");
 
+var lastTransportState = "";
+var lastRegistererState = "";
 var videoRemote, videoLocal, audioRemote;
 var initializeComplete = false;
 var webRTCStatus = "offline"; // ready -> registered, offline -> unregistered,
@@ -8057,6 +8100,7 @@ function postInit(onInitDoneCallback) {
   onInitDoneCallback();
 }
 function sipRegister() {
+  lastRegistererState = "";
   cleanupRegistererTimer();
   try {
     ctxSip.config = {
@@ -8104,6 +8148,7 @@ function sipRegister() {
   register_flag = false;
 }
 let registererStateEventListner = newState => {
+  lastRegistererState = newState;
   if (ctxSip.phone && ctxSip.phone.transport && ctxSip.phone.transport.isConnected()) {
     sipPhoneLogger("debug", "", "", "sipjslog registerer new state " + newState);
     switch (newState) {
@@ -8126,6 +8171,7 @@ let registererWaitingChangeListener = b => {
   }
 };
 let transportStateChangeListener = newState => {
+  lastTransportState = newState;
   sipPhoneLogger("debug", "", "", "sipjslog transport new state " + newState);
   switch (newState) {
     case SIP.TransportState.Connecting:
@@ -8669,10 +8715,17 @@ const SIPJSPhone = {
   getWSSUrl: () => {
     console.log("Returning txtWebsocketURL:", txtWebsocketURL);
     return txtWebsocketURL;
-  }
+  },
   /* NL Additions - End */
+  getTransportState: () => {
+    console.log("Returning Transport State : ", lastTransportState);
+    return lastTransportState;
+  },
+  getRegistrationState: () => {
+    console.log("Returning Registration State : ", lastRegistererState);
+    return lastRegistererState;
+  }
 };
-
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (SIPJSPhone);
 
 /***/ }),
@@ -8820,10 +8873,26 @@ const webrtcSIPPhone = {
     } catch (e) {
       console.log("getWSSUrl: Exception ", e);
     }
-  }
+  },
   /* NL Addition - End */
-};
 
+  getTransportState() {
+    try {
+      return _sipjsphone__WEBPACK_IMPORTED_MODULE_0__["default"].getTransportState();
+    } catch (e) {
+      console.log("getTransportState: Exception ", e);
+      return "unknown";
+    }
+  },
+  getRegistrationState() {
+    try {
+      return _sipjsphone__WEBPACK_IMPORTED_MODULE_0__["default"].getRegistrationState();
+    } catch (e) {
+      console.log("getTransportState: Exception ", e);
+      return "unknown";
+    }
+  }
+};
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (webrtcSIPPhone);
 
 /***/ }),
