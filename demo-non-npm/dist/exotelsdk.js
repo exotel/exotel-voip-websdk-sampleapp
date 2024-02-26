@@ -1,6 +1,6 @@
 /*!
  * 
- * WebRTC CLient SIP version 1.0.7
+ * WebRTC CLient SIP version 1.0.8
  *
  */
 (function webpackUniversalModuleDefinition(root, factory) {
@@ -1716,23 +1716,25 @@ class ExotelWebClient {
     };
     navigator.mediaDevices.getUserMedia(constraints).then(function (mediaStream) {
       var transportState = _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_9__.webrtcSIPPhone.getTransportState();
+      transportState = transportState.toLowerCase();
       switch (transportState) {
         case "":
           callback("not_intialized");
           break;
         case "unknown":
-        case "Connecting":
+        case "connecting":
           callback(transportState);
           break;
         default:
           var registerationState = _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_9__.webrtcSIPPhone.getRegistrationState();
+          registerationState = registerationState.toLowerCase();
           switch (registerationState) {
             case "":
               callback("websocket_connection_failed");
               break;
-            case "Registered":
-              if (transportState != "Connected") {
-                callback("Disconnected");
+            case "registered":
+              if (transportState != "connected") {
+                callback("disconnected");
               } else {
                 callback(registerationState);
               }
