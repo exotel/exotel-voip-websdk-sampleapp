@@ -1,14 +1,16 @@
 <!DOCTYPE html>
 <html>
-<head>
-<title>WebPhone</title>
 
-<script type="text/javascript" src="./dist/exotelsdk.js"></script>
-<script type="text/javascript" src="phone.js"></script>
-<script type="text/javascript" src="demo.js"></script>
+<head>
+	<title>WebPhone</title>
+
+	<script type="text/javascript" src="./dist/exotelsdk.js"></script>
+	<script type="text/javascript" src="phone.js"></script>
+	<script type="text/javascript" src="demo.js"></script>
 
 </head>
-<body >
+
+<body>
 
 	<b>Register Status : </b>
 	<b id="status"> unregister</b>
@@ -21,9 +23,12 @@
 	<b id="call_status"> </b>
 	<br />
 	<br />
-    <button onclick="acceptCall()">Accept Call</button>
+	<button onclick="acceptCall()">Accept Call</button>
 	<button onclick="rejectCall()">END CALL</button>
 	<button id="muteButton" onclick="toggleMuteButton()">MUTE</button>
 	<button id="holdButton" onclick="toggleHoldButton()">HOLD</button>
+	<button id="dtmfButton1" onclick="sendDTMF(1)">DTMF 1</button>
+	<button id="dtmfButton2" onclick="sendDTMF(2)">DTMF 2</button>
 </body>
+
 </html>
