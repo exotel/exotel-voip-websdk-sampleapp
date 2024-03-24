@@ -84,3 +84,9 @@ function toggleHoldButton() {
         }
     }
 }
+
+function sendDTMF(digit) {
+    if (call) {
+        call.sendDTMF(digit);
+    }
+}
