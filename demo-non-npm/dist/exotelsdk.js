@@ -1,6 +1,6 @@
 /*!
  * 
- * WebRTC CLient SIP version 1.0.10
+ * WebRTC CLient SIP version 1.0.11
  *
  */
 (function webpackUniversalModuleDefinition(root, factory) {
@@ -20916,7 +20916,7 @@ function postInit(onInitDoneCallback) {
 				}
 
 				const dtmf = digit;
-				const duration = 2000;
+				const duration = 240;
 				const body = {
 					contentDisposition: "render",
 					contentType: "application/dtmf-relay",
