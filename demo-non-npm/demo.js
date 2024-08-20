@@ -90,3 +90,57 @@ function sendDTMF(digit) {
         call.sendDTMF(digit);
     }
 }
+
+// Function to handle input device change
+function handleChangeInputDevice() {
+    const selectedDeviceId = document.getElementById('inputDevices').value;
+    const resetDeviceOnCallEnd = true;
+    exWebClient.changeInputDevice(
+        selectedDeviceId,
+        (deviceId) => alert(`Input device changed successfully to: ${deviceId}`),
+        (error) => alert(`Failed to change input device: ${error}`),
+        resetDeviceOnCallEnd
+    );
+}
+
+// Function to handle output device change
+function handleChangeOutputDevice() {
+    const selectedDeviceId = document.getElementById('outputDevices').value;
+    const resetDeviceOnCallEnd = true;
+    exWebClient.changeOutputDevice(
+        selectedDeviceId,
+        (deviceId) => alert(`Output device changed successfully to: ${deviceId}`),
+        (error) => alert(`Failed to change output device: ${error}`),
+        resetDeviceOnCallEnd
+    );
+}
+
+//populate the device dropdowns
+async function populateDeviceDropdowns() {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const inputDevices = devices.filter(device => device.kind === 'audioinput');
+    const outputDevices = devices.filter(device => device.kind === 'audiooutput');
+
+    const inputDropdown = document.getElementById('inputDevices');
+    const outputDropdown = document.getElementById('outputDevices');
+
+    inputDevices.forEach(device => {
+        const option = document.createElement('option');
+        option.value = device.deviceId;
+        option.textContent = device.label || `Input Device ${device.deviceId}`;
+        inputDropdown.appendChild(option);
+    });
+
+    outputDevices.forEach(device => {
+        const option = document.createElement('option');
+        option.value = device.deviceId;
+        option.textContent = device.label || `Output Device ${device.deviceId}`;
+        outputDropdown.appendChild(option);
+    });
+}
+
+// Populate dropdowns when the page loads
+window.addEventListener('load', populateDeviceDropdowns);
+
+// Re-populate devices list when the device list changes
+navigator.mediaDevices.addEventListener('devicechange', populateDeviceDropdowns);
