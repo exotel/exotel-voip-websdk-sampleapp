@@ -29,6 +29,26 @@
 	<button id="holdButton" onclick="toggleHoldButton()">HOLD</button>
 	<button id="dtmfButton1" onclick="sendDTMF(1)">DTMF 1</button>
 	<button id="dtmfButton2" onclick="sendDTMF(2)">DTMF 2</button>
+	<br />
+	<br />
+	<!-- Dropdown for Input Devices -->
+    <b><label for="inputDevices">Select Input Device:</label></b>
+    <select id="inputDevices"></select>
+    <button id="changeInputButton" onclick = "changeAudioInputDevice()">Change Input Device</button>
+    <br />
+	<br />
+    <!-- Dropdown for Output Devices -->
+    <b><label for="outputDevices">Select Output Device:</label></b>
+    <select id="outputDevices"></select>
+    <button id="changeOutputButton" onclick = "changeAudioOutputDevice()">Change Output Device</button>
+	<br />
+	<br />
+	<b>Current Input Device : </b>
+	<b id="current_input_device"> </b>
+	<br />
+	<br />
+	<b>Current Output Device : </b>
+	<b id="current_output_device"> </b>
 </body>
 
 </html>
