@@ -34,15 +34,21 @@
 	<!-- Dropdown for Input Devices -->
     <b><label for="inputDevices">Select Input Device:</label></b>
     <select id="inputDevices"></select>
-    <button id="changeInputButton" onclick = "handleChangeInputDevice()">Change Input Device</button>
+    <button id="changeInputButton" onclick = "changeAudioInputDevice()">Change Input Device</button>
     <br />
 	<br />
     <!-- Dropdown for Output Devices -->
     <b><label for="outputDevices">Select Output Device:</label></b>
     <select id="outputDevices"></select>
-    <button id="changeOutputButton" onclick = "handleChangeOutputDevice()">Change Output Device</button>
+    <button id="changeOutputButton" onclick = "changeAudioOutputDevice()">Change Output Device</button>
 	<br />
 	<br />
+	<b>Current Input Device : </b>
+	<b id="current_input_device"> </b>
+	<br />
+	<br />
+	<b>Current Output Device : </b>
+	<b id="current_output_device"> </b>
 </body>
 
 </html>

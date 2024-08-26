@@ -15,7 +15,7 @@ function UserAgentRegistration() {
         'security': sipInfo.Security,
         'endpoint': sipInfo.EndPoint
     };
-    exWebClient.initWebrtc(sipAccountInfo, RegisterEventCallBack, CallListenerCallback, SessionCallback)
+    exWebClient.initWebrtc(sipAccountInfo, RegisterEventCallBack, CallListenerCallback, SessionCallback, CurrentInputDeviceCallback, CurrentOutputDeviceCallback)
     console.log("Test.js: Calling DoRegister")
     exWebClient.DoRegister();
 }
@@ -33,6 +33,16 @@ function registerToggle() {
 function CallListenerCallback(callObj, eventType, sipInfo) {
     call = exWebClient.getCall();
     document.getElementById("call_status").innerHTML = eventType;
+}
+
+function CurrentInputDeviceCallback(currentInputDevice) {
+    console.log("Current input device: ", currentInputDevice);
+    document.getElementById("current_input_device").innerHTML = currentInputDevice;
+}
+
+function CurrentOutputDeviceCallback(currentOutputDevice) {
+    console.log("Current output device: ", currentOutputDevice);
+    document.getElementById("current_output_device").innerHTML = currentOutputDevice;
 }
 
 function RegisterEventCallBack(state, sipInfo) {
@@ -92,7 +102,7 @@ function sendDTMF(digit) {
 }
 
 // Function to handle input device change
-function handleChangeInputDevice() {
+function changeAudioInputDevice() {
     const selectedDeviceId = document.getElementById('inputDevices').value;
     const resetDeviceOnCallEnd = true;
     exWebClient.changeInputDevice(
@@ -104,7 +114,7 @@ function handleChangeInputDevice() {
 }
 
 // Function to handle output device change
-function handleChangeOutputDevice() {
+function changeAudioOutputDevice() {
     const selectedDeviceId = document.getElementById('outputDevices').value;
     const resetDeviceOnCallEnd = true;
     exWebClient.changeOutputDevice(
