@@ -1,4 +1,31 @@
 const exWebClient = new exotelSDK.ExotelWebClient();
+exWebClient.registerLoggerCallback(function (type, message, args) {
+
+    switch (type) {
+        case "log":
+            console.log(`demo: ${message}`, args);
+            break;
+        case "info":
+            console.info(`demo: ${message}`, args);
+            break;
+        case "error":
+            console.error(`demo: ${message}`, args);
+            break;
+        case "warn":
+            console.warn(`demo: ${message}`, args);
+            break;
+        default:
+            console.log(`demo: ${message}`, args);
+            break;
+    }
+});
+
+exWebClient.registerAudioDeviceChangeCallback(function (deviceId) {
+    console.log(`demo:audioInputDeviceCallback device changed to ${deviceId}`);
+}, function (deviceId) {
+    console.log(`demo:audioOutputDeviceCallback device changed to ${deviceId}`);
+});
+
 var call = null;
 var shouldAutoRetry = false;
 function UserAgentRegistration() {
@@ -33,6 +60,16 @@ function registerToggle() {
 function CallListenerCallback(callObj, eventType, sipInfo) {
     call = exWebClient.getCall();
     document.getElementById("call_status").innerHTML = eventType;
+}
+
+function CurrentInputDeviceCallback(currentInputDevice) {
+    console.log("Current input device: ", currentInputDevice);
+    document.getElementById("current_input_device").innerHTML = currentInputDevice;
+}
+
+function CurrentOutputDeviceCallback(currentOutputDevice) {
+    console.log("Current output device: ", currentOutputDevice);
+    document.getElementById("current_output_device").innerHTML = currentOutputDevice;
 }
 
 function RegisterEventCallBack(state, sipInfo) {
@@ -90,3 +127,70 @@ function sendDTMF(digit) {
         call.sendDTMF(digit);
     }
 }
+
+// Function to change input device change
+function changeAudioInputDevice() {
+    const selectedDeviceId = document.getElementById('inputDevices').value;
+    exWebClient.changeAudioInputDevice(
+        selectedDeviceId,
+        () => console.log(`Input device changed successfully`),
+        (error) => console.log(`Failed to change input device: ${error}`)
+    );
+}
+
+// Function to change output device change
+function changeAudioOutputDevice() {
+    const selectedDeviceId = document.getElementById('outputDevices').value;
+    exWebClient.changeAudioOutputDevice(
+        selectedDeviceId,
+        () => console.log(`Output device changed successfully`),
+        (error) => console.log(`Failed to change output device: ${error}`)
+    );
+}
+
+//populate the device dropdowns
+async function populateDeviceDropdowns() {
+
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const inputDevices = devices.filter(device => device.kind === 'audioinput');
+    const outputDevices = devices.filter(device => device.kind === 'audiooutput');
+    const defaultInputDevice = inputDevices.find(device => device.deviceId === "default");
+    const defaultOutputDevice = outputDevices.find(device => device.deviceId === "default");
+
+    const inputDropdown = document.getElementById('inputDevices');
+    inputDropdown.innerHTML = "";
+    const outputDropdown = document.getElementById('outputDevices');
+    outputDropdown.innerHTML = "";
+    inputDevices.forEach(device => {
+        if (device.deviceId == "" || device.deviceId == "default") {
+            return;
+        }
+
+        const option = document.createElement('option');
+        option.value = device.deviceId;
+        if (device.groupId == defaultInputDevice.groupId) {
+            option.selected = true;
+        }
+        option.textContent = device.label || `Input Device ${device.deviceId}`;
+        inputDropdown.appendChild(option);
+    });
+
+    outputDevices.forEach(device => {
+        if (device.deviceId == "" || device.deviceId == "default") {
+            return;
+        }
+        const option = document.createElement('option');
+        option.value = device.deviceId;
+        if (device.groupId == defaultOutputDevice.groupId) {
+            option.selected = true;
+        }
+        option.textContent = device.label || `Output Device ${device.deviceId}`;
+        outputDropdown.appendChild(option);
+    });
+}
+
+// Populate dropdowns when the page loads
+window.addEventListener('load', populateDeviceDropdowns);
+
+// Re-populate devices list when the device list changes
+navigator.mediaDevices.addEventListener('devicechange', populateDeviceDropdowns);

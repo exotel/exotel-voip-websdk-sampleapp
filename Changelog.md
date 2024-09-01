@@ -1,4 +1,7 @@
 Changelog
+## v1.0.11 26 August 2024
+- upgraded sdk to 1.0.11, Added real-time selection for microphone and speaker devices, and implemented callbacks to notify the application when a device change occurs.
+
 # v1.0.10 24 March 2024
 - upgrade sdk to 1.0.10 with send DTMF support 
 

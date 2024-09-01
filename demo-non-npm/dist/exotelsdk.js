@@ -1,6 +1,6 @@
 /*!
  * 
- * WebRTC CLient SIP version 1.0.11
+ * WebRTC CLient SIP version 1.0.12
  *
  */
 (function webpackUniversalModuleDefinition(root, factory) {
@@ -28,6 +28,207 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   webrtcSIPPhone: () => (/* reexport safe */ _src_webrtcSIPPhone__WEBPACK_IMPORTED_MODULE_0__.webrtcSIPPhone)
 /* harmony export */ });
 /* harmony import */ var _src_webrtcSIPPhone__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./src/webrtcSIPPhone */ "./node_modules/@exotel-npm-dev/webrtc-core-sdk/src/webrtcSIPPhone.js");
+
+
+/***/ }),
+
+/***/ "./node_modules/@exotel-npm-dev/webrtc-core-sdk/src/audioDeviceManager.js":
+/*!********************************************************************************!*\
+  !*** ./node_modules/@exotel-npm-dev/webrtc-core-sdk/src/audioDeviceManager.js ***!
+  \********************************************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   audioDeviceManager: () => (/* binding */ audioDeviceManager),
+/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
+/* harmony export */ });
+/* harmony import */ var _coreSDKLogger__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./coreSDKLogger */ "./node_modules/@exotel-npm-dev/webrtc-core-sdk/src/coreSDKLogger.js");
+
+
+const logger = _coreSDKLogger__WEBPACK_IMPORTED_MODULE_0__["default"];
+const audioDeviceManager = {
+    resetInputDevice: false,
+    resetOutputDevice: false,
+    currentAudioInputDeviceId: "default",
+    currentAudioOutputDeviceId: "default",
+
+
+    // Method to set the resetInputDevice flag
+    setResetInputDeviceFlag(value) {
+        this.resetInputDevice = value;
+    },
+
+    // Method to set the resetOutputDevice flag
+    setResetOutputDeviceFlag(value) {
+        this.resetOutputDevice = value;
+    },
+
+    async changeAudioInputDevice(deviceId, onSuccess, onError) {
+        logger.log(`SIPJSPhone:changeAudioInputDevice entry`);
+        try {
+            if (deviceId == audioDeviceManager.currentAudioInputDeviceId) {
+                logger.log(`SIPJSPhone:changeAudioInputDevice current input device is same as ${deviceId}`);
+                return;
+            }
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const inputDevice = devices.find(device => device.deviceId === deviceId && device.kind === 'audioinput');
+            if (!inputDevice) {
+                logger.error("input device id " + deviceId + "not found");
+                onError("deviceIdNotFound");
+                return;
+            }
+            logger.log(`SIPJSPhone:changeAudioInputDevice acquiring input device ${deviceId} : ${inputDevice.label}`);
+            const stream = await navigator.mediaDevices.getUserMedia({
+                audio: { deviceId: { exact: deviceId } }
+            });
+            onSuccess(stream);
+        } catch (error) {
+            logger.error('SIPJSPhone:changeAudioInputDevice Error changing input device:', error);
+            onError(error);
+        }
+    },
+
+    async changeAudioOutputDevice(audioRemote, deviceId, onSuccess, onError) {
+        logger.log(`audioDeviceManager:changeAudioOutputDevice : entry`);
+        if (deviceId == audioDeviceManager.currentAudioOutputDeviceId) {
+            logger.log(`SIPJSPhone:changeAudioOutputDevice current output device is same as ${deviceId}`);
+            return;
+        }
+        const audioElement = audioRemote;
+        if (typeof audioElement.sinkId !== 'undefined') {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const outputDevice = devices.find(device => device.deviceId === deviceId && device.kind === 'audiooutput');
+                if (!outputDevice) {
+                    logger.error("audioDeviceManager:changeAudioOutputDevice output device id " + deviceId + "not found");
+                    onError("deviceIdNotFound");
+                    return;
+                }
+                logger.log(`SIPJSPhone:changeAudioOutputDevice acquiring output device ${deviceId} : ${outputDevice.label}`);
+                await audioElement.setSinkId(deviceId);
+                audioDeviceManager.currentAudioOutputDeviceId = deviceId;
+                logger.log(`audioDeviceManager:changeAudioOutputDevice Output device changed to: ${deviceId}`);
+                if (onSuccess) onSuccess();
+
+
+            } catch (error) {
+                logger.error('audioDeviceManager:changeAudioOutputDevice Error changing output device:', error);
+                if (onError) onError(error);
+            }
+        } else {
+            const errorMsg = 'audioDeviceManager:changeAudioOutputDevice Browser does not support output device selection.';
+            logger.error(errorMsg);
+            if (onError) onError(errorMsg);
+        }
+    },
+
+    async resetAudioDevice(audioRemote, onInputDeviceChangeCallback, onOutputDeviceChangeCallback) {
+        audioDeviceManager._resetAudioDevice(audioRemote, onInputDeviceChangeCallback, onOutputDeviceChangeCallback, audioDeviceManager.resetOutputDevice, audioDeviceManager.resetInputDevice);
+    },
+
+    onAudioDeviceChange(audioRemote, onInputDeviceChangeCallback, onOutputDeviceChangeCallback) {
+        logger.log("audioDeviceManager:onAudioDeviceChange entry");
+        audioDeviceManager._resetAudioDevice(audioRemote, onInputDeviceChangeCallback, onOutputDeviceChangeCallback, true, true);
+    },
+
+    async _resetAudioDevice(audioRemote, onInputDeviceChangeCallback, onOutputDeviceChangecallback, resetOutputDevice, resetInputDevice) {
+        logger.log("audioDeviceManager:_resetAudioDevice entry");
+        try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+
+            if (resetOutputDevice) {
+                const defaultOutputDevice = devices.find(device => device.deviceId === "default" && device.kind === 'audiooutput');
+                const outputDevice = devices.find(device => device.groupId == defaultOutputDevice.groupId && device.kind === 'audiooutput' && device.deviceId != 'default');
+
+                audioDeviceManager.changeAudioOutputDevice(audioRemote,
+                    outputDevice.deviceId,
+                    () => onOutputDeviceChangecallback(outputDevice.deviceId),
+                    (error) => logger.log(`audioDeviceManager:_resetAudioDevice Failed to change output device: ${error}`)
+                );
+            }
+            if (resetInputDevice) {
+                const defaultInputDevice = devices.find(device => device.deviceId === "default" && device.kind === 'audioinput');
+                const inputDevice = devices.find(device => device.groupId == defaultInputDevice.groupId && device.kind === 'audioinput' && device.deviceId != 'default');
+                audioDeviceManager.changeAudioInputDevice(
+                    inputDevice.deviceId,
+                    (stream) => onInputDeviceChangeCallback(stream, inputDevice.deviceId),
+                    (error) => logger.log(`audioDeviceManager:_resetAudioDevice Failed to change input device: ${error}`)
+                );
+            }
+        } catch (error) {
+            logger.log("audioDeviceManager:_resetAudioDevice something went wrong", error);
+        }
+    },
+
+};
+
+
+/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (audioDeviceManager);
+
+/***/ }),
+
+/***/ "./node_modules/@exotel-npm-dev/webrtc-core-sdk/src/coreSDKLogger.js":
+/*!***************************************************************************!*\
+  !*** ./node_modules/@exotel-npm-dev/webrtc-core-sdk/src/coreSDKLogger.js ***!
+  \***************************************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
+/* harmony export */ });
+
+const coreSDKLogger = {
+
+    loggerCallback: null,
+
+    registerLoggerCallback(callback) {
+        coreSDKLogger.loggerCallback = callback;
+    },
+    log: (arg1, ...args) => {
+        if (args.length == 0)
+            console.log(arg1);
+        else
+            console.log(arg1, args);
+        if (coreSDKLogger.loggerCallback)
+            coreSDKLogger.loggerCallback("log", arg1, args);
+    },
+
+    info: (arg1, ...args) => {
+        if (args.length == 0)
+            console.info(arg1);
+        else
+            console.info(arg1, args);
+        if (coreSDKLogger.loggerCallback)
+            coreSDKLogger.loggerCallback("info", arg1, args);
+    },
+
+    warn: (arg1, ...args) => {
+        if (args.length == 0)
+            console.warn(arg1);
+        else
+            console.warn(arg1, args);
+        if (coreSDKLogger.loggerCallback)
+            coreSDKLogger.loggerCallback("warn", arg1, args);
+    },
+
+    error: (arg1, ...args) => {
+        if (args.length == 0)
+            console.error(arg1);
+        else
+            console.error(arg1, args);
+        if (coreSDKLogger.loggerCallback)
+            coreSDKLogger.loggerCallback("error", arg1, args);
+    }
+};
+
+
+/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (coreSDKLogger);
+
+
 
 
 /***/ }),
@@ -20614,7 +20815,9 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__),
 /* harmony export */   getLogger: () => (/* binding */ getLogger)
 /* harmony export */ });
-/* harmony import */ var _webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./webrtcSIPPhoneEventDelegate */ "./node_modules/@exotel-npm-dev/webrtc-core-sdk/src/webrtcSIPPhoneEventDelegate.js");
+/* harmony import */ var _audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./audioDeviceManager.js */ "./node_modules/@exotel-npm-dev/webrtc-core-sdk/src/audioDeviceManager.js");
+/* harmony import */ var _coreSDKLogger_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./coreSDKLogger.js */ "./node_modules/@exotel-npm-dev/webrtc-core-sdk/src/coreSDKLogger.js");
+/* harmony import */ var _webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./webrtcSIPPhoneEventDelegate */ "./node_modules/@exotel-npm-dev/webrtc-core-sdk/src/webrtcSIPPhoneEventDelegate.js");
 /*
  * SIPJS WebRTC SIP Phone - to interact with SIPJS Library
  */
@@ -20622,9 +20825,10 @@ __webpack_require__.r(__webpack_exports__);
 var SIP = __webpack_require__(/*! ./sip-0.20.0.js */ "./node_modules/@exotel-npm-dev/webrtc-core-sdk/src/sip-0.20.0.js")
 ;
 
+
+
 var lastTransportState = "";
 var lastRegistererState = "";
-var videoRemote, videoLocal, audioRemote;
 var initializeComplete = false;
 var webRTCStatus = "offline"; // ready -> registered, offline -> unregistered,
 var callBackHandler = null;
@@ -20641,8 +20845,8 @@ ringbacktone.src = __webpack_require__(/*! ./static/ringbacktone.wav */ "./node_
 var dtmftone = document.createElement("audio");
 dtmftone.src = __webpack_require__(/*! ./static/dtmf.wav */ "./node_modules/@exotel-npm-dev/webrtc-core-sdk/src/static/dtmf.wav");
 
-videoLocal = document.createElement("video");//getElementById("video_local");
-videoRemote = document.createElement("video");//getElementById("video_remote");
+var audioRemote = document.createElement("audio");
+
 
 let txtDisplayName, txtPrivateIdentity, txtHostNameWithPort, txtHostName, txtWebSocketPort, txtAccountName;
 let txtSecurity, txtSipDomain, txtWSPort, txtSipPort, txtSipSecurePort, txtContactHost, endpoint;
@@ -20653,7 +20857,8 @@ let register_flag = false;
 var ctxSip = {};
 var registerer = null;
 
-const logger = console; //AmeyoLogger.get("sipjsphone");
+
+const logger = _coreSDKLogger_js__WEBPACK_IMPORTED_MODULE_1__["default"];
 logger.log(SIP);
 /* NL Additions - Start */
 
@@ -20664,7 +20869,7 @@ function getLogger() {
 		uaLogger = userAgent.getLogger("sip.WebrtcLib")
 		//let loggerFactory = userAgent.getLoggerFactory()
 	} catch (e) {
-		console.log("No userAgent.getLogger: Using console log")
+		logger.log("No userAgent.getLogger: Using console log")
 		return console;
 	}
 
@@ -20672,7 +20877,7 @@ function getLogger() {
 		return uaLogger;
 	}
 	else {
-		console.log("No Logger: Using console log")
+		logger.log("No Logger: Using console log")
 		return logger;
 	}
 }
@@ -20797,7 +21002,7 @@ function postInit(onInitDoneCallback) {
 					let callId = ctxSip.callActiveID;
 					let username = ctxSip.config.authorizationUsername;
 					let pc = sdh._peerConnection;
-					_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].initGetStats(pc, callId, username);
+					_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].initGetStats(pc, callId, username);
 				} catch (e) {
 					logger.log("something went wrong while initing getstats");
 					logger.log(e);
@@ -20805,19 +21010,19 @@ function postInit(onInitDoneCallback) {
 
 				sdh.peerConnectionDelegate = {
 					onnegotiationneeded: (event) => {
-						_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].onCallStatNegoNeeded();
+						_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].onCallStatNegoNeeded();
 					},
 					onsignalingstatechange: (event) => {
-						_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].onCallStatSignalingStateChange(event.target.signalingState);
+						_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].onCallStatSignalingStateChange(event.target.signalingState);
 					},
 					onconnectionstatechange: (event) => {
-						_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].onStatPeerConnectionConnectionStateChange(event.target.connectionState);
+						_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].onStatPeerConnectionConnectionStateChange(event.target.connectionState);
 					},
 					oniceconnectionstatechange: (event) => {
-						_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].onStatPeerConnectionIceConnectionStateChange(event.target.iceConnectionState);
+						_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].onStatPeerConnectionIceConnectionStateChange(event.target.iceConnectionState);
 					},
 					onicegatheringstatechange: (event) => {
-						_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].onStatPeerConnectionIceGatheringStateChange(event.target.iceGatheringState);
+						_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].onStatPeerConnectionIceGatheringStateChange(event.target.iceGatheringState);
 					}
 
 				};
@@ -20827,7 +21032,7 @@ function postInit(onInitDoneCallback) {
 
 			let status;
 			if (newSess.direction === 'incoming') {
-				_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].onCallStatSipJsSessionEvent('incoming');
+				_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].onCallStatSipJsSessionEvent('incoming');
 				status = "Incoming: " + newSess.displayName;
 				ctxSip.startRingTone();
 				//sip call method was invoking after 500 ms because of race between server push and 
@@ -20952,7 +21157,7 @@ function postInit(onInitDoneCallback) {
 		phoneMute: function (sessionid, bMute) {
 			if (sessionid) {
 				var s = ctxSip.Sessions[sessionid];
-				console.log("phoneMute: bMute", bMute)
+				logger.log("phoneMute: bMute", bMute)
 				toggleMute(s, bMute);
 				bMicEnable = !bMute;
 			}
@@ -20961,7 +21166,7 @@ function postInit(onInitDoneCallback) {
 		phoneHold: function (sessionid, bHold) {
 			if (sessionid) {
 				var s = ctxSip.Sessions[sessionid];
-				console.log("phoneHold: bHold", bHold)
+				logger.log("phoneHold: bHold", bHold)
 				toggleHold(s, bHold);
 				bHoldEnable = bHold;
 			}
@@ -20995,7 +21200,7 @@ function postInit(onInitDoneCallback) {
 				return true;
 			} else {
 				ctxSip.setError(true, 'Unsupported Browser.', 'Your browser does not support the features required for this phone.');
-				window.console.error("WebRTC support not found");
+				logger.error("WebRTC support not found");
 				return false;
 			}
 		}
@@ -21006,7 +21211,7 @@ function postInit(onInitDoneCallback) {
 	if (!ctxSip.hasWebRTC) {
 		alert('Your browser don\'t support WebRTC.\naudio/video calls will be disabled.');
 	}
-	_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].setWebRTCFSMMapper("sipjs");
+	_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].setWebRTCFSMMapper("sipjs");
 	logger.log("init: Initialization complete...")
 	initializeComplete = true;
 	onInitDoneCallback();
@@ -21112,8 +21317,8 @@ let transportStateChangeListener = (newState) => {
 	switch (newState) {
 
 		case SIP.TransportState.Connecting:
-			_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].onCallStatSipJsTransportEvent('connecting');
-			_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].sendWebRTCEventsToFSM("starting", "CONNECTION");
+			_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].onCallStatSipJsTransportEvent('connecting');
+			_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].sendWebRTCEventsToFSM("starting", "CONNECTION");
 			break;
 		case SIP.TransportState.Connected:
 			onUserAgentTransportConnected();
@@ -21145,8 +21350,8 @@ function registerPhoneEventListeners() {
 			var s = incomingSession;
 			s.direction = 'incoming';
 			ctxSip.newSession(s);
-			_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].onRecieveInvite(incomingSession);
-			_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].sendWebRTCEventsToFSM("i_new_call", "CALL");
+			_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].onRecieveInvite(incomingSession);
+			_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].sendWebRTCEventsToFSM("i_new_call", "CALL");
 		} else {
 			incomingSession.reject();
 		}
@@ -21207,7 +21412,7 @@ function uiCallTerminated(s_description) {
 
 function sipCall() {
 	logger.log("testing emit accept_reject");
-	_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].sendWebRTCEventsToFSM("accept_reject", "CALL");
+	_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].sendWebRTCEventsToFSM("accept_reject", "CALL");
 }
 
 
@@ -21224,26 +21429,18 @@ function sipPhoneLogger(level, category, label, content) {
 			logger.log(level + " sipjslog: " + category + ": " + content);
 		}
 	} catch (e) {
-		logger.error("ERROR", e);
+		logger.error("sipjsphone:sipPhoneLogger ERROR", e);
 	}
 
 }
 
 
 function onInvitationSessionAccepted(newSess) {
+	ctxSip.Stream = newSess.sessionDescriptionHandler.localMediaStream;
+	assignStream(newSess.sessionDescriptionHandler.remoteMediaStream, audioRemote);
 
-	if (!audioRemote) {
-		audioRemote = document.createElement("audio");
-		//audioRemote.setAttribute("id", "audio_remote");
-		console.log("No audio remote id .... ")
-	}
-
-	if (audioRemote) {
-		assignStream(newSess.sessionDescriptionHandler.remoteMediaStream, audioRemote);
-	}
-
-	_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].onCallStatSipJsSessionEvent('accepted');
-	_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].sendWebRTCEventsToFSM("connected", "CALL");
+	_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].onCallStatSipJsSessionEvent('accepted');
+	_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].sendWebRTCEventsToFSM("connected", "CALL");
 
 	// If there is another active call, hold it
 	if (ctxSip.callActiveID && ctxSip.callActiveID !== newSess.ctxid) {
@@ -21263,14 +21460,15 @@ function onInvitationSessionAccepted(newSess) {
 }
 
 function onInvitationSessionTerminated() {
-	_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].stopCallStat();
-	_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].onCallStatSipJsSessionEvent('terminated');
+	SIPJSPhone.stopStreamTracks(ctxSip.Stream);
+	_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].stopCallStat();
+	_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].onCallStatSipJsSessionEvent('terminated');
 	ctxSip.stopRingTone();
 	ctxSip.stopRingbackTone();
 	ctxSip.setCallSessionStatus("");
 	ctxSip.callActiveID = null;
-	_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].playBeepTone();
-	_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].sendWebRTCEventsToFSM("terminated", "CALL");
+	_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].playBeepTone();
+	_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].sendWebRTCEventsToFSM("terminated", "CALL");
 
 	uiCallTerminated();
 	if (register_flag == true) {
@@ -21285,7 +21483,7 @@ function onInvitationSessionTerminated() {
 
 
 function onUserAgentRegistered() {
-	_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].sendWebRTCEventsToFSM("connected", "CONNECTION");
+	_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].sendWebRTCEventsToFSM("connected", "CONNECTION");
 	var bConnected = true;
 	uiOnConnectionEvent(bConnected, !bConnected);
 	register_flag = true;
@@ -21312,7 +21510,7 @@ function onUserAgentRegistrationTerminated() {
 function onUserAgentRegistrationFailed() {
 
 
-	_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].sendWebRTCEventsToFSM("terminated", "CONNECTION");
+	_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].sendWebRTCEventsToFSM("terminated", "CONNECTION");
 	uiOnConnectionEvent(false, false);
 	register_flag = false;
 	if (callBackHandler != null) {
@@ -21324,9 +21522,9 @@ function onUserAgentRegistrationFailed() {
 
 
 function onUserAgentTransportConnected() {
-	_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].onCallStatSipJsTransportEvent('connected');
+	_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].onCallStatSipJsTransportEvent('connected');
 	webRTCStatus = "ready";
-	_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].sendWebRTCEventsToFSM("started", "CONNECTION");
+	_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].sendWebRTCEventsToFSM("started", "CONNECTION");
 	if (callBackHandler != null) {
 		if (callBackHandler.onResponse) {
 			callBackHandler.onResponse("offline");
@@ -21364,8 +21562,8 @@ function onUserAgentTransportDisconnected() {
 
 	cleanupRegistererTimer();
 
-	_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].onCallStatSipJsTransportEvent('disconnected');
-	_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].sendWebRTCEventsToFSM("failed_to_start", "CONNECTION");
+	_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].onCallStatSipJsTransportEvent('disconnected');
+	_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].sendWebRTCEventsToFSM("failed_to_start", "CONNECTION");
 	if (callBackHandler != null) {
 		if (callBackHandler.onResponse) {
 			callBackHandler.onResponse("error");
@@ -21418,14 +21616,14 @@ function handleWebSocketMessageContent(content, direction) {
 		case "sent":
 
 			if (sipMessage.method == "CONNECTION")
-				_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].sendWebRTCEventsToFSM("sent_request", sipMessage.method);
+				_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].sendWebRTCEventsToFSM("sent_request", sipMessage.method);
 
-			_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].onCallStatSipSendCallback(newtext, "sipjs");
+			_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].onCallStatSipSendCallback(newtext, "sipjs");
 
 
 			break;
 		case "recv":
-			_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].onCallStatSipRecvCallback(newtext, "sipjs");
+			_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].onCallStatSipRecvCallback(newtext, "sipjs");
 			break;
 		default:
 			break;
@@ -21468,13 +21666,13 @@ function toggleMute(s, mute) {
 
 
 function onMuted(s) {
-	_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].onCallStatSipJsSessionEvent('muted');
+	_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].onCallStatSipJsSessionEvent('muted');
 	s.isMuted = true;
 	ctxSip.setCallSessionStatus("Muted");
 }
 
 function onUnmuted(s) {
-	_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].onCallStatSipJsSessionEvent('unmuted');
+	_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].onCallStatSipJsSessionEvent('unmuted');
 	s.isMuted = false;
 	ctxSip.setCallSessionStatus("Answered");
 }
@@ -21506,13 +21704,13 @@ function enableReceiverTracks(s, enable) {
 			throw new Error("Peer connection closed.");
 		}
 		peerConnection.getReceivers().forEach((receiver) => {
-			console.log("Receiver ", receiver)
+			logger.log("Receiver ", receiver)
 			if (receiver.track) {
 				receiver.track.enabled = enable;
 			}
 		});
 	} catch (e) {
-		console.log("enableReceiverTracks: Error in updating receiver tracks  ", e)
+		logger.log("enableReceiverTracks: Error in updating receiver tracks  ", e)
 
 	}
 }
@@ -21531,7 +21729,7 @@ function enableSenderTracks(s, enable) {
 			}
 		});
 	} catch (e) {
-		console.log("enableSenderTracks: Error in updating sender tracks  ", e)
+		logger.log("enableSenderTracks: Error in updating sender tracks  ", e)
 	}
 }
 
@@ -21559,6 +21757,8 @@ function toggleHold(s, hold) {
 }
 
 function assignStream(stream, element) {
+	if (_audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.currentAudioOutputDeviceId != "default")
+		element.setSinkId(_audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.currentAudioOutputDeviceId);
 	// Set element source.
 	element.autoplay = true; // Safari does not allow calling .play() from a
 	// non user action
@@ -21566,16 +21766,16 @@ function assignStream(stream, element) {
 
 	// Load and start playback of media.
 	element.play().catch((error) => {
-		console.error("Failed to play media");
-		console.error(error);
+		logger.error("Failed to play media");
+		logger.error(error);
 	});
 
 	// If a track is added, load and restart playback of media.
 	stream.onaddtrack = () => {
 		element.load(); // Safari does not work otheriwse
 		element.play().catch((error) => {
-			console.error("Failed to play remote media on add track");
-			console.error(error);
+			logger.error("Failed to play remote media on add track");
+			logger.error(error);
 		});
 	};
 
@@ -21583,17 +21783,17 @@ function assignStream(stream, element) {
 	stream.onremovetrack = () => {
 		element.load(); // Safari does not work otheriwse
 		element.play().catch((error) => {
-			console.error("Failed to play remote media on remove track");
-			console.error(error);
+			logger.error("Failed to play remote media on remove track");
+			logger.error(error);
 		});
 	};
 }
 
 function onUserSessionAcceptFailed(e) {
 	if (e.name == "NotAllowedError" || e.name == "NotFoundError") {
-		_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].sendWebRTCEventsToFSM("m_permission_refused", "CALL");
-		_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].onCallStatSipJsSessionEvent('userMediaFailed');
-		_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_0__["default"].onGetUserMediaErrorCallstatCallback();
+		_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].sendWebRTCEventsToFSM("m_permission_refused", "CALL");
+		_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].onCallStatSipJsSessionEvent('userMediaFailed');
+		_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].onGetUserMediaErrorCallstatCallback();
 	} else {
 		logger.log("user media failed due to error ", e);
 	}
@@ -21604,9 +21804,6 @@ const SIPJSPhone = {
 
 	init: (onInitDoneCallback) => {
 
-		videoLocal = document.getElementById("video_local");
-		videoRemote = document.getElementById("video_remote");
-		audioRemote = document.getElementById("audio_remote");
 		var preInit = function () {
 			logger.log("init:readyState, calling postInit")
 			postInit(onInitDoneCallback);
@@ -21742,9 +21939,20 @@ const SIPJSPhone = {
 		var newSess = ctxSip.Sessions[ctxSip.callActiveID];
 		logger.log("pickphonecall ", ctxSip.callActiveID);
 		if (newSess) {
-			newSess.accept().catch((e) => {
-				onUserSessionAcceptFailed(e);
-			});
+			if (_audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.currentAudioInputDeviceId != "default") {
+				newSess.accept({
+					sessionDescriptionHandlerOptions: {
+						constraints: { audio: { deviceId: _audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.currentAudioInputDeviceId }, video: false }
+					}
+				}).catch((e) => {
+					onUserSessionAcceptFailed(e);
+				});
+			} else {
+
+				newSess.accept().catch((e) => {
+					onUserSessionAcceptFailed(e);
+				});
+			}
 		}
 
 	},
@@ -21795,28 +22003,136 @@ const SIPJSPhone = {
 	},
 	/* NL Additions - Start */
 	getSpeakerTestTone: () => {
-		console.log("Returning speaker test tone:", ringtone);
+		logger.log("Returning speaker test tone:", ringtone);
 		return ringtone;
 	},
 
 
 	getWSSUrl: () => {
-		console.log("Returning txtWebsocketURL:", txtWebsocketURL);
+		logger.log("Returning txtWebsocketURL:", txtWebsocketURL);
 		return txtWebsocketURL;
 	},
 	/* NL Additions - End */
 	getTransportState: () => {
-		console.log("Returning Transport State : ", lastTransportState);
+		logger.log("Returning Transport State : ", lastTransportState);
 		return lastTransportState;
 	},
 	getRegistrationState: () => {
-		console.log("Returning Registration State : ", lastRegistererState);
+		logger.log("Returning Registration State : ", lastRegistererState);
 		return lastRegistererState;
 	},
 
+	changeAudioInputDevice(deviceId, onSuccess, onError) {
+		_audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.changeAudioInputDevice(deviceId, function (stream) {
+			const trackChanged = SIPJSPhone.replaceSenderTrack(stream, deviceId);
+			if (trackChanged) {
+				_audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.currentAudioInputDeviceId = deviceId;
+				logger.log(`SIPJSPhone:changeAudioInputDevice Input device changed to: ${deviceId}`);
 
+				onSuccess();
+			} else {
+				logger.error("SIPJSPhone:changeAudioInputDevice failed");
+				onError("something went wrong , try again");
+			}
+		}, onError);
+	},
+	onRemoteAudioOutputDeviceChanged(deviceId) {
+		ringtone.setSinkId(deviceId).catch((e) => {
+			logger.error("sipjsphone:onRemoteAudioOutputDeviceChanged ringtone changedevice failure ", e);
+		});
+	},
+	changeAudioOutputDevice(deviceId, onSuccess, onError) {
+		if (!ctxSip.callActiveID) {
+			audioRemote = document.createElement("audio");
+		}
+		_audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.changeAudioOutputDevice(audioRemote, deviceId, function () {
+			SIPJSPhone.onRemoteAudioOutputDeviceChanged(deviceId);
+			onSuccess();
+		}, onError);
+	},
+
+	stopStreamTracks(stream) {
+		try {
+			if (stream) {
+				const tracks = stream.getTracks();
+				tracks.forEach((track) => {
+					track.stop();
+				});
+			}
+		} catch (e) {
+			logger.error("sipjsphone:stopStreamTracks failed to stop tracks");
+		}
+	},
+	replaceSenderTrack(stream, deviceId) {
+		try {
+
+			if (_audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.currentAudioInputDeviceId == deviceId) {
+				SIPJSPhone.stopStreamTracks(stream);
+				return false;
+			}
+			if (ctxSip.callActiveID) {
+				ctxSip.Stream = stream;
+				const s = ctxSip.Sessions[ctxSip.callActiveID];
+				const pc = s.sessionDescriptionHandler.peerConnection;
+				if (pc.getSenders) {
+					try {
+						const [audioTrack] = stream.getAudioTracks();
+						const sender = pc.getSenders().find((s) => s.track.kind === audioTrack.kind);
+						sender.track.stop();
+						sender.replaceTrack(audioTrack);
+					} catch (e) {
+						logger.error(`replaceSenderTrack unable to replace track for stream for device id ${deviceId} `, stream);
+					}
+				}
+			} else {
+				SIPJSPhone.stopStreamTracks(stream);
+			}
+			return true;
+		} catch (e) {
+			return false;
+		}
+
+	},
+	registerLogger(customLogger) {
+		logger = customLogger;
+	},
+	audioInputDeviceChangeCallback: null,
+	audioOutputDeviceChangeCallback: null,
+	registerAudioDeviceChangeCallback(audioInputDeviceChangeCallback, audioOutputDeviceChangeCallback) {
+		logger.log(`SIPJSPhone:registerAudioDeviceChangeCallback  entry`);
+		SIPJSPhone.audioInputDeviceChangeCallback = audioInputDeviceChangeCallback;
+		SIPJSPhone.audioOutputDeviceChangeCallback = audioOutputDeviceChangeCallback;
+
+	}
 
 };
+
+
+navigator.mediaDevices.addEventListener('devicechange', function (event) {
+	try {
+		if (!ctxSip.callActiveID) {
+			audioRemote = document.createElement("audio");
+		}
+		_audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.onAudioDeviceChange(audioRemote,
+			function (stream, deviceId) {
+				const trackChanged = SIPJSPhone.replaceSenderTrack(stream, deviceId);
+				if (trackChanged) {
+					_audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.currentAudioInputDeviceId = deviceId;
+					if (SIPJSPhone.audioInputDeviceChangeCallback) {
+						SIPJSPhone.audioInputDeviceChangeCallback(deviceId);
+					}
+				}
+			}, function (deviceId) {
+				SIPJSPhone.onRemoteAudioOutputDeviceChanged(deviceId);
+				_audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.currentAudioOutputDeviceId = deviceId;
+				if (SIPJSPhone.audioOutputDeviceChangeCallback) {
+					SIPJSPhone.audioOutputDeviceChangeCallback(deviceId);
+				}
+			});
+	} catch (e) {
+		logger.error("SIPJSPhone:ondevicechange something went wrong during device change", e);
+	}
+});
 
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (SIPJSPhone);
 
@@ -21835,8 +22151,9 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__),
 /* harmony export */   webrtcSIPPhone: () => (/* binding */ webrtcSIPPhone)
 /* harmony export */ });
-/* harmony import */ var _sipjsphone__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./sipjsphone */ "./node_modules/@exotel-npm-dev/webrtc-core-sdk/src/sipjsphone.js");
-/* harmony import */ var _webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./webrtcSIPPhoneEventDelegate */ "./node_modules/@exotel-npm-dev/webrtc-core-sdk/src/webrtcSIPPhoneEventDelegate.js");
+/* harmony import */ var _coreSDKLogger__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./coreSDKLogger */ "./node_modules/@exotel-npm-dev/webrtc-core-sdk/src/coreSDKLogger.js");
+/* harmony import */ var _sipjsphone__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./sipjsphone */ "./node_modules/@exotel-npm-dev/webrtc-core-sdk/src/sipjsphone.js");
+/* harmony import */ var _webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./webrtcSIPPhoneEventDelegate */ "./node_modules/@exotel-npm-dev/webrtc-core-sdk/src/webrtcSIPPhoneEventDelegate.js");
 /**
  * Communication from Webrtc flows and feature handling for web RTC as WebRTC Phone Interface
  * 
@@ -21848,8 +22165,10 @@ __webpack_require__.r(__webpack_exports__);
 
 var phone = null;
 let webrtcSIPEngine = null;
+const logger = _coreSDKLogger__WEBPACK_IMPORTED_MODULE_0__["default"];
+
 function sendWebRTCEventsToFSM(eventType, sipMethod) {
-	_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_1__["default"].sendWebRTCEventsToFSM(eventType, sipMethod);
+	_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].sendWebRTCEventsToFSM(eventType, sipMethod);
 }
 
 let sipAccountInfoData = {};
@@ -21924,13 +22243,13 @@ const webrtcSIPPhone = {
 	pickCall: () => {
 		phone.pickPhoneCall();
 
-		_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_1__["default"].onPickCall();
+		_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].onPickCall();
 	},
 
 	rejectCall: () => {
 		phone.sipHangUp();
 
-		_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_1__["default"].onRejectCall();
+		_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].onRejectCall();
 	},
 
 	reRegisterWebRTCPhone: () => {
@@ -21962,13 +22281,13 @@ const webrtcSIPPhone = {
 		webrtcSIPEngine = engine;
 		switch (engine) {
 			case "sipjs":
-				phone = _sipjsphone__WEBPACK_IMPORTED_MODULE_0__["default"];
+				phone = _sipjsphone__WEBPACK_IMPORTED_MODULE_1__["default"];
 				break;
 			default:
 				break;
 		}
-		_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_1__["default"].registerDelegate(delegate);
-		_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_1__["default"].onRegisterWebRTCSIPEngine(engine);
+		_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].registerDelegate(delegate);
+		_webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].onRegisterWebRTCSIPEngine(engine);
 
 
 	},
@@ -21998,37 +22317,54 @@ const webrtcSIPPhone = {
 	/* NL Addition - Start */
 	getSpeakerTestTone() {
 		try {
-			return _sipjsphone__WEBPACK_IMPORTED_MODULE_0__["default"].getSpeakerTestTone()
+			return _sipjsphone__WEBPACK_IMPORTED_MODULE_1__["default"].getSpeakerTestTone()
 		} catch (e) {
-			console.log("getSpeakerTestTone: Exception ", e)
+			logger.log("getSpeakerTestTone: Exception ", e)
 		}
 	},
 
 	getWSSUrl() {
 		try {
-			return _sipjsphone__WEBPACK_IMPORTED_MODULE_0__["default"].getWSSUrl()
+			return _sipjsphone__WEBPACK_IMPORTED_MODULE_1__["default"].getWSSUrl()
 		} catch (e) {
-			console.log("getWSSUrl: Exception ", e)
+			logger.log("getWSSUrl: Exception ", e)
 		}
 	},
 	/* NL Addition - End */
 
 	getTransportState() {
 		try {
-			return _sipjsphone__WEBPACK_IMPORTED_MODULE_0__["default"].getTransportState();
+			return _sipjsphone__WEBPACK_IMPORTED_MODULE_1__["default"].getTransportState();
 		} catch (e) {
-			console.log("getTransportState: Exception ", e);
+			logger.log("getTransportState: Exception ", e);
 			return "unknown";
 		}
 	},
 
 	getRegistrationState() {
 		try {
-			return _sipjsphone__WEBPACK_IMPORTED_MODULE_0__["default"].getRegistrationState();
+			return _sipjsphone__WEBPACK_IMPORTED_MODULE_1__["default"].getRegistrationState();
 		} catch (e) {
-			console.log("getTransportState: Exception ", e);
+			logger.log("getTransportState: Exception ", e);
 			return "unknown";
 		}
+	},
+
+	changeAudioInputDevice(deviceId, onSuccess, onError) {
+		logger.log(`webrtcSIPPhone:changeAudioInputDevice  entry`);
+		_sipjsphone__WEBPACK_IMPORTED_MODULE_1__["default"].changeAudioInputDevice(deviceId, onSuccess, onError);
+	},
+
+	changeAudioOutputDevice(deviceId, onSuccess, onError) {
+		logger.log(`webrtcSIPPhone:changeAudioOutputDevice entry`);
+		_sipjsphone__WEBPACK_IMPORTED_MODULE_1__["default"].changeAudioOutputDevice(deviceId, onSuccess, onError);
+	},
+	registerAudioDeviceChangeCallback(audioInputDeviceChangeCallback, audioOutputDeviceChangeCallback) {
+		logger.log(`webrtcSIPPhone:registerAudioDeviceChangeCallback  entry`);
+		_sipjsphone__WEBPACK_IMPORTED_MODULE_1__["default"].registerAudioDeviceChangeCallback(audioInputDeviceChangeCallback, audioOutputDeviceChangeCallback);
+	},
+	getLogger() {
+		return _coreSDKLogger__WEBPACK_IMPORTED_MODULE_0__["default"];
 	}
 
 };
@@ -22242,26 +22578,24 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   Call: () => (/* binding */ Call)
 /* harmony export */ });
 /* harmony import */ var _CallDetails__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./CallDetails */ "./src/api/callAPI/CallDetails.js");
-/* harmony import */ var _omAPI_WebrtcLogger__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../omAPI/WebrtcLogger */ "./src/api/omAPI/WebrtcLogger.js");
-/* harmony import */ var _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! @exotel-npm-dev/webrtc-core-sdk */ "./node_modules/@exotel-npm-dev/webrtc-core-sdk/index.js");
+/* harmony import */ var _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! @exotel-npm-dev/webrtc-core-sdk */ "./node_modules/@exotel-npm-dev/webrtc-core-sdk/index.js");
 
 
-
-var logger = (0,_omAPI_WebrtcLogger__WEBPACK_IMPORTED_MODULE_1__.webrtcLogger)();
+var logger = _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_1__.webrtcSIPPhone.getLogger();
 function Call() {
   this.Answer = function () {
     /**
      * When agent accepts phone, add appropriate msg to be sent to webclient
      */
     logger.log('Call answered');
-    _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_2__.webrtcSIPPhone.pickCall();
+    _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_1__.webrtcSIPPhone.pickCall();
   };
   this.Hangup = function () {
     /**
      * When call is terminated
      */
     logger.log('call ended');
-    _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_2__.webrtcSIPPhone.rejectCall();
+    _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_1__.webrtcSIPPhone.rejectCall();
   };
   this.MuteToggle = function () {
     /**
@@ -22269,7 +22603,7 @@ function Call() {
      */
     logger.log('mute toggle clicked');
     let dummyFlag = null;
-    _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_2__.webrtcSIPPhone.webRTCMuteUnmute(null);
+    _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_1__.webrtcSIPPhone.webRTCMuteUnmute(null);
   };
   this.Mute = function () {
     /**
@@ -22277,7 +22611,7 @@ function Call() {
      */
     logger.log('mute clicked');
     let dummyFlag = true;
-    _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_2__.webrtcSIPPhone.webRTCMuteUnmute(dummyFlag);
+    _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_1__.webrtcSIPPhone.webRTCMuteUnmute(dummyFlag);
   };
   this.UnMute = function () {
     /**
@@ -22285,14 +22619,14 @@ function Call() {
      */
     logger.log('unmute clicked');
     let dummyFlag = false;
-    _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_2__.webrtcSIPPhone.webRTCMuteUnmute(dummyFlag);
+    _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_1__.webrtcSIPPhone.webRTCMuteUnmute(dummyFlag);
   };
   this.HoldToggle = function () {
     /**
      * When user clicks on hold
      */
     logger.log('Hold toggle clicked');
-    _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_2__.webrtcSIPPhone.holdCall();
+    _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_1__.webrtcSIPPhone.holdCall();
   };
   this.Hold = function () {
     /**
@@ -22300,7 +22634,7 @@ function Call() {
      */
     logger.log('hold clicked');
     let dummyFlag = true;
-    _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_2__.webrtcSIPPhone.holdCall();
+    _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_1__.webrtcSIPPhone.holdCall();
   };
   this.UnHold = function () {
     /**
@@ -22308,7 +22642,7 @@ function Call() {
      */
     logger.log('unhold clicked');
     let dummyFlag = true;
-    _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_2__.webrtcSIPPhone.holdCall();
+    _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_1__.webrtcSIPPhone.holdCall();
   };
   this.callDetails = function () {
     /**
@@ -22321,7 +22655,7 @@ function Call() {
      * sends dtmf digit as SIP info over websocket 
      */
     logger.log("trying to send dtmf " + digit);
-    _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_2__.webrtcSIPPhone.sendDTMFWebRTC(digit);
+    _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_1__.webrtcSIPPhone.sendDTMFWebRTC(digit);
   };
 }
 
@@ -22425,12 +22759,10 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   ameyoWebRTCTroubleshooter: () => (/* binding */ ameyoWebRTCTroubleshooter)
 /* harmony export */ });
 /* harmony import */ var _listeners_Callback__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../../listeners/Callback */ "./src/listeners/Callback.js");
-/* harmony import */ var _WebrtcLogger__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./WebrtcLogger */ "./src/api/omAPI/WebrtcLogger.js");
-/* harmony import */ var _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! @exotel-npm-dev/webrtc-core-sdk */ "./node_modules/@exotel-npm-dev/webrtc-core-sdk/index.js");
+/* harmony import */ var _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! @exotel-npm-dev/webrtc-core-sdk */ "./node_modules/@exotel-npm-dev/webrtc-core-sdk/index.js");
 
 
-
-var logger = (0,_WebrtcLogger__WEBPACK_IMPORTED_MODULE_1__.webrtcLogger)();
+var logger = _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_1__.webrtcSIPPhone.getLogger();
 var speakerNode;
 var micNode;
 var audioTrack;
@@ -22544,7 +22876,7 @@ var ameyoWebRTCTroubleshooter = {
     return browserName + "/" + version;
   },
   stopSpeakerTesttone: function () {
-    speakerTestTone = _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_2__.webrtcSIPPhone.getSpeakerTestTone();
+    speakerTestTone = _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_1__.webrtcSIPPhone.getSpeakerTestTone();
     speakerTestTone.pause();
   },
   stopSpeakerTesttoneWithSuccess: function () {
@@ -22564,7 +22896,7 @@ var ameyoWebRTCTroubleshooter = {
     try {
       intervalID = setInterval(function () {
         try {
-          speakerTestTone = _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_2__.webrtcSIPPhone.getSpeakerTestTone();
+          speakerTestTone = _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_1__.webrtcSIPPhone.getSpeakerTestTone();
           /* Close last pending tracks.. */
           logger.log("close last track");
           speakerTestTone.pause();
@@ -22614,7 +22946,7 @@ var ameyoWebRTCTroubleshooter = {
 
   stopSpeakerTest: function () {
     var parent = this;
-    speakerTestTone = _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_2__.webrtcSIPPhone.getSpeakerTestTone();
+    speakerTestTone = _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_1__.webrtcSIPPhone.getSpeakerTestTone();
     //Enable this for tone loop - Start
     try {
       clearInterval(intervalID);
@@ -22778,7 +23110,7 @@ var ameyoWebRTCTroubleshooter = {
   },
   setWSTroubleshootData: function (txtWsStatus) {
     //Already done during init, no need to do again. 
-    let txtWSSUrl = _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_2__.webrtcSIPPhone.getWSSUrl();
+    let txtWSSUrl = _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_1__.webrtcSIPPhone.getWSSUrl();
     _listeners_Callback__WEBPACK_IMPORTED_MODULE_0__.diagnosticsCallback.triggerKeyValueSetCallback("wss", txtWsStatus, txtWSSUrl);
   },
   startWSAndUserRegistrationTest: function () {
@@ -22968,11 +23300,11 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ });
 /* harmony import */ var _listeners_Callback__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../../listeners/Callback */ "./src/listeners/Callback.js");
 /* harmony import */ var _Diagnostics__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./Diagnostics */ "./src/api/omAPI/Diagnostics.js");
-/* harmony import */ var _WebrtcLogger__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./WebrtcLogger */ "./src/api/omAPI/WebrtcLogger.js");
+/* harmony import */ var _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! @exotel-npm-dev/webrtc-core-sdk */ "./node_modules/@exotel-npm-dev/webrtc-core-sdk/index.js");
 
 
 
-var logger = (0,_WebrtcLogger__WEBPACK_IMPORTED_MODULE_2__.webrtcLogger)();
+var logger = _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_2__.webrtcSIPPhone.getLogger();
 function initDiagnostics(setDiagnosticsReportCallback, keyValueSetCallback) {
   if (!keyValueSetCallback || !setDiagnosticsReportCallback) {
     logger.log("Callbacks are not set");
@@ -23060,69 +23392,6 @@ function stopNetworkDiagnostics() {
 
 /***/ }),
 
-/***/ "./src/api/omAPI/WebrtcLogger.js":
-/*!***************************************!*\
-  !*** ./src/api/omAPI/WebrtcLogger.js ***!
-  \***************************************/
-/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
-
-"use strict";
-__webpack_require__.r(__webpack_exports__);
-/* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   customLogger: () => (/* binding */ customLogger),
-/* harmony export */   webrtcLogger: () => (/* binding */ webrtcLogger)
-/* harmony export */ });
-/* ES6 LOGGER */
-/*
-import Logger from 'node-logger-es6'
-
-var es6Logger = Logger.configure(
-    {
-        level: 'debug',
-        rotation: 'd',
-        size: 5,
-        json: true,
-        timestamp: true
-    }
-); 
-*/
-
-/* CUSTOM-LOGGER */
-/* Note currently customLogger uses console only
-   we can replace it with any other logger for 
-   instances: es6Logger or ameyoLogger or winstonLogger.
-   essentially the idea is not to duplicate the logic of 
-   handling levels and output stream.
- */
-var customLogger = {
-  log: (arg1, ...args) => {
-    console.log(arg1, args);
-  },
-  info: (arg1, ...args) => {
-    console.log(arg1, args);
-  },
-  warn: (arg1, ...args) => {
-    console.log(arg1, args);
-  },
-  error: (arg1, ...args) => {
-    console.log(arg1, args);
-  }
-};
-
-/* CONSOLE LOGGER */
-var consoleLogger = console;
-
-/* FINAL LOGGER TO USE */
-function webrtcLogger() {
-  if (customLogger) {
-    return customLogger;
-  } else {
-    return consoleLogger;
-  }
-}
-
-/***/ }),
-
 /***/ "./src/api/registerAPI/RegisterListener.js":
 /*!*************************************************!*\
   !*** ./src/api/registerAPI/RegisterListener.js ***!
@@ -23135,9 +23404,9 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   DoRegister: () => (/* binding */ DoRegister),
 /* harmony export */   UnRegister: () => (/* binding */ UnRegister)
 /* harmony export */ });
-/* harmony import */ var _omAPI_WebrtcLogger__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../omAPI/WebrtcLogger */ "./src/api/omAPI/WebrtcLogger.js");
+/* harmony import */ var _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! @exotel-npm-dev/webrtc-core-sdk */ "./node_modules/@exotel-npm-dev/webrtc-core-sdk/index.js");
 
-var logger = (0,_omAPI_WebrtcLogger__WEBPACK_IMPORTED_MODULE_0__.webrtcLogger)();
+var logger = _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_0__.webrtcSIPPhone.getLogger();
 
 /**
  * Function to register the phone onto a webRTC client
@@ -23241,42 +23510,42 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
 /* harmony export */   CallListener: () => (/* binding */ CallListener)
 /* harmony export */ });
-/* harmony import */ var _api_omAPI_WebrtcLogger__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../api/omAPI/WebrtcLogger */ "./src/api/omAPI/WebrtcLogger.js");
-/* harmony import */ var _Callback__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./Callback */ "./src/listeners/Callback.js");
+/* harmony import */ var _Callback__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./Callback */ "./src/listeners/Callback.js");
+/* harmony import */ var _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! @exotel-npm-dev/webrtc-core-sdk */ "./node_modules/@exotel-npm-dev/webrtc-core-sdk/index.js");
 
 
-var logger = (0,_api_omAPI_WebrtcLogger__WEBPACK_IMPORTED_MODULE_0__.webrtcLogger)();
+var logger = _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_1__.webrtcSIPPhone.getLogger();
 function CallListener() {
   this.onIncomingCall = function (call, phone) {
     /**
      * When there is an incoming call, [INVITE is received on SIP] send a call back to the 
      */
     logger.log("CallListener:Initialise call");
-    _Callback__WEBPACK_IMPORTED_MODULE_1__.callbacks.initializeCall(call, phone);
+    _Callback__WEBPACK_IMPORTED_MODULE_0__.callbacks.initializeCall(call, phone);
 
     /** Triggers the callback on the UI end with message indicating it to be an incoming call */
     logger.log("CallListener:Trigger Incoming");
-    _Callback__WEBPACK_IMPORTED_MODULE_1__.callbacks.triggerCallback("incoming");
+    _Callback__WEBPACK_IMPORTED_MODULE_0__.callbacks.triggerCallback("incoming");
   };
   this.onCallEstablished = function (call, phone) {
     /**
      * When connection is established [ACK is sent by other party on SIP]
      */
     logger.log("CallListener:Initialise call");
-    _Callback__WEBPACK_IMPORTED_MODULE_1__.callbacks.initializeCall(call, phone);
+    _Callback__WEBPACK_IMPORTED_MODULE_0__.callbacks.initializeCall(call, phone);
     /** Triggers the callback on the UI end with message indicating call has been established*/
     logger.log("CallListener:Trigger Connected");
-    _Callback__WEBPACK_IMPORTED_MODULE_1__.callbacks.triggerCallback("connected");
+    _Callback__WEBPACK_IMPORTED_MODULE_0__.callbacks.triggerCallback("connected");
   };
   this.onCallEnded = function (call, phone) {
     /**
      * When other party ends the call [BYE is received and sent by SIP]
      */
     logger.log("CallListener:Initialise call");
-    _Callback__WEBPACK_IMPORTED_MODULE_1__.callbacks.initializeCall(call, phone);
+    _Callback__WEBPACK_IMPORTED_MODULE_0__.callbacks.initializeCall(call, phone);
     /** Triggers the callback on the UI end with message indicating call has ended */
     logger.log("CallListener:Trigger Call Ended");
-    _Callback__WEBPACK_IMPORTED_MODULE_1__.callbacks.triggerCallback("callEnded");
+    _Callback__WEBPACK_IMPORTED_MODULE_0__.callbacks.triggerCallback("callEnded");
   };
 }
 
@@ -23299,9 +23568,9 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   timerSession: () => (/* binding */ timerSession),
 /* harmony export */   webrtcTroubleshooterEventBus: () => (/* binding */ webrtcTroubleshooterEventBus)
 /* harmony export */ });
-/* harmony import */ var _api_omAPI_WebrtcLogger__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../api/omAPI/WebrtcLogger */ "./src/api/omAPI/WebrtcLogger.js");
+/* harmony import */ var _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! @exotel-npm-dev/webrtc-core-sdk */ "./node_modules/@exotel-npm-dev/webrtc-core-sdk/index.js");
 
-var logger = (0,_api_omAPI_WebrtcLogger__WEBPACK_IMPORTED_MODULE_0__.webrtcLogger)();
+var logger = _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_0__.webrtcSIPPhone.getLogger();
 
 /**
  * The call backs are called through this function. First initiates the call object and then
@@ -23516,26 +23785,14 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
 /* harmony export */ });
 /* harmony import */ var _api_callAPI_Call__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../api/callAPI/Call */ "./src/api/callAPI/Call.js");
-/* harmony import */ var _CallCtrlerDummy__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./CallCtrlerDummy */ "./src/listeners/CallCtrlerDummy.js");
+/* harmony import */ var _api_registerAPI_RegisterListener__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../api/registerAPI/RegisterListener */ "./src/api/registerAPI/RegisterListener.js");
 /* harmony import */ var _listeners_CallListener__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../listeners/CallListener */ "./src/listeners/CallListener.js");
-/* harmony import */ var _api_registerAPI_RegisterListener__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../api/registerAPI/RegisterListener */ "./src/api/registerAPI/RegisterListener.js");
-/* harmony import */ var _listeners_ExotelVoiceClientListener__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../listeners/ExotelVoiceClientListener */ "./src/listeners/ExotelVoiceClientListener.js");
-/* harmony import */ var _listeners_SessionListeners__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ../listeners/SessionListeners */ "./src/listeners/SessionListeners.js");
+/* harmony import */ var _listeners_ExotelVoiceClientListener__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ../listeners/ExotelVoiceClientListener */ "./src/listeners/ExotelVoiceClientListener.js");
+/* harmony import */ var _listeners_SessionListeners__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ../listeners/SessionListeners */ "./src/listeners/SessionListeners.js");
+/* harmony import */ var _CallCtrlerDummy__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./CallCtrlerDummy */ "./src/listeners/CallCtrlerDummy.js");
 /* harmony import */ var _api_omAPI_DiagnosticsListener__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ../api/omAPI/DiagnosticsListener */ "./src/api/omAPI/DiagnosticsListener.js");
 /* harmony import */ var _listeners_Callback__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./Callback */ "./src/listeners/Callback.js");
-/* harmony import */ var _api_omAPI_WebrtcLogger__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ../api/omAPI/WebrtcLogger */ "./src/api/omAPI/WebrtcLogger.js");
-/* harmony import */ var _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! @exotel-npm-dev/webrtc-core-sdk */ "./node_modules/@exotel-npm-dev/webrtc-core-sdk/index.js");
-
-
-
-
-
-
-
-
-
-
-
+/* harmony import */ var _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! @exotel-npm-dev/webrtc-core-sdk */ "./node_modules/@exotel-npm-dev/webrtc-core-sdk/index.js");
 
 
 
@@ -23548,7 +23805,7 @@ __webpack_require__.r(__webpack_exports__);
 
 var intervalId;
 var intervalIDMap = new Map();
-var logger = (0,_api_omAPI_WebrtcLogger__WEBPACK_IMPORTED_MODULE_8__.webrtcLogger)();
+var logger = _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_8__.webrtcSIPPhone.getLogger();
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -23703,13 +23960,13 @@ class ExotelWebClient {
   sipAccountInfo = null;
   initWebrtc = (sipAccountInfo_, RegisterEventCallBack, CallListenerCallback, SessionCallback) => {
     if (!this.eventListener) {
-      this.eventListener = new _listeners_ExotelVoiceClientListener__WEBPACK_IMPORTED_MODULE_4__.ExotelVoiceClientListener();
+      this.eventListener = new _listeners_ExotelVoiceClientListener__WEBPACK_IMPORTED_MODULE_3__.ExotelVoiceClientListener();
     }
     if (!this.callListener) {
       this.callListener = new _listeners_CallListener__WEBPACK_IMPORTED_MODULE_2__.CallListener();
     }
     if (!this.ctrlr) {
-      this.ctrlr = new _CallCtrlerDummy__WEBPACK_IMPORTED_MODULE_1__.CallController();
+      this.ctrlr = new _CallCtrlerDummy__WEBPACK_IMPORTED_MODULE_5__.CallController();
     }
     if (!this.call) {
       this.call = new _api_callAPI_Call__WEBPACK_IMPORTED_MODULE_0__.Call();
@@ -23728,10 +23985,10 @@ class ExotelWebClient {
     return true;
   };
   DoRegister = () => {
-    (0,_api_registerAPI_RegisterListener__WEBPACK_IMPORTED_MODULE_3__.DoRegister)(this.sipAccountInfo, this);
+    (0,_api_registerAPI_RegisterListener__WEBPACK_IMPORTED_MODULE_1__.DoRegister)(this.sipAccountInfo, this);
   };
   UnRegister = () => {
-    (0,_api_registerAPI_RegisterListener__WEBPACK_IMPORTED_MODULE_3__.UnRegister)(this.sipAccountInfo, this);
+    (0,_api_registerAPI_RegisterListener__WEBPACK_IMPORTED_MODULE_1__.UnRegister)(this.sipAccountInfo, this);
   };
   initDiagnostics = (saveDiagnosticsCallback, keyValueSetCallback) => {
     (0,_api_omAPI_DiagnosticsListener__WEBPACK_IMPORTED_MODULE_6__.initDiagnostics)(saveDiagnosticsCallback, keyValueSetCallback);
@@ -23759,7 +24016,7 @@ class ExotelWebClient {
     (0,_api_omAPI_DiagnosticsListener__WEBPACK_IMPORTED_MODULE_6__.stopNetworkDiagnostics)();
   };
   SessionListener = () => {
-    (0,_listeners_SessionListeners__WEBPACK_IMPORTED_MODULE_5__.SessionListener)();
+    (0,_listeners_SessionListeners__WEBPACK_IMPORTED_MODULE_4__.SessionListener)();
   };
 
   /**
@@ -23842,7 +24099,7 @@ class ExotelWebClient {
    */
   unregister = sipAccountInfo => {
     // webrtcSIPPhone.unregister(sipAccountInfo)
-    _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_9__.webrtcSIPPhone.sipUnRegisterWebRTC();
+    _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_8__.webrtcSIPPhone.sipUnRegisterWebRTC();
   };
   webRTCStatusCallbackHandler = (msg1, arg1) => {
     logger.log("webRTCStatusCallbackHandler: " + msg1 + " " + arg1);
@@ -23918,8 +24175,8 @@ class ExotelWebClient {
     //webRTCPhones[userName] = webRTC;
 
     /* New-Way  */
-    _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_9__.webrtcSIPPhone.registerPhone("sipjs", delegationHandler);
-    _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_9__.webrtcSIPPhone.registerWebRTCClient(this.sipAccntInfo, synchronousHandler);
+    _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_8__.webrtcSIPPhone.registerPhone("sipjs", delegationHandler);
+    _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_8__.webrtcSIPPhone.registerWebRTCClient(this.sipAccntInfo, synchronousHandler);
 
     /**
      * Store the intervalID against a map
@@ -23936,7 +24193,7 @@ class ExotelWebClient {
       video: false
     };
     navigator.mediaDevices.getUserMedia(constraints).then(function (mediaStream) {
-      var transportState = _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_9__.webrtcSIPPhone.getTransportState();
+      var transportState = _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_8__.webrtcSIPPhone.getTransportState();
       transportState = transportState.toLowerCase();
       switch (transportState) {
         case "":
@@ -23947,7 +24204,7 @@ class ExotelWebClient {
           callback(transportState);
           break;
         default:
-          var registerationState = _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_9__.webrtcSIPPhone.getRegistrationState();
+          var registerationState = _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_8__.webrtcSIPPhone.getRegistrationState();
           registerationState = registerationState.toLowerCase();
           switch (registerationState) {
             case "":
@@ -23965,10 +24222,24 @@ class ExotelWebClient {
           }
       }
     }).catch(function (error) {
-      console.log("something went wrong during checkClientStatus ", error);
+      logger.log("something went wrong during checkClientStatus ", error);
       callback("media_permission_denied");
     });
   };
+  changeAudioInputDevice(deviceId, onSuccess, onError) {
+    logger.log(`in changeAudioInputDevice() of ExWebClient.js`);
+    _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_8__.webrtcSIPPhone.changeAudioInputDevice(deviceId, onSuccess, onError);
+  }
+  changeAudioOutputDevice(deviceId, onSuccess, onError) {
+    logger.log(`in changeAudioOutputDevice() of ExWebClient.js`);
+    _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_8__.webrtcSIPPhone.changeAudioOutputDevice(deviceId, onSuccess, onError);
+  }
+  registerLoggerCallback(callback) {
+    logger.registerLoggerCallback(callback);
+  }
+  registerAudioDeviceChangeCallback(audioInputDeviceChangeCallback, audioOutputDeviceChangeCallback) {
+    _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_8__.webrtcSIPPhone.registerAudioDeviceChangeCallback(audioInputDeviceChangeCallback, audioOutputDeviceChangeCallback);
+  }
 }
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (ExotelWebClient);
 
@@ -24044,12 +24315,12 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _Callback__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./Callback */ "./src/listeners/Callback.js");
 /* harmony import */ var uuid__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! uuid */ "./node_modules/uuid/dist/esm-browser/v4.js");
 /* harmony import */ var _constants_common__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../constants/common */ "./src/constants/common.js");
-/* harmony import */ var _api_omAPI_WebrtcLogger__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ../api/omAPI/WebrtcLogger */ "./src/api/omAPI/WebrtcLogger.js");
+/* harmony import */ var _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! @exotel-npm-dev/webrtc-core-sdk */ "./node_modules/@exotel-npm-dev/webrtc-core-sdk/index.js");
 
 
 
 
-var logger = (0,_api_omAPI_WebrtcLogger__WEBPACK_IMPORTED_MODULE_2__.webrtcLogger)();
+var logger = _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_2__.webrtcSIPPhone.getLogger();
 /**
  * Session listeners is invoked when user opens two tabs, the data in tab 1 is
  * copied into tab 2
