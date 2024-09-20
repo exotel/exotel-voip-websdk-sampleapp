@@ -1,6 +1,6 @@
 /*!
  * 
- * WebRTC CLient SIP version 1.0.12
+ * WebRTC CLient SIP version 1.0.14
  *
  */
 (function webpackUniversalModuleDefinition(root, factory) {
@@ -20858,7 +20858,7 @@ var ctxSip = {};
 var registerer = null;
 
 
-const logger = _coreSDKLogger_js__WEBPACK_IMPORTED_MODULE_1__["default"];
+let logger = _coreSDKLogger_js__WEBPACK_IMPORTED_MODULE_1__["default"];
 logger.log(SIP);
 /* NL Additions - Start */
 
@@ -22685,6 +22685,8 @@ var CallDetails = {
   callAnswerTime: '',
   callEndReason: '',
   sessionId: '',
+  callSid: '',
+  sipHeaders: {},
   setCallDetails: function (callId, remoteId, remoteDisplayName, callDirection, callState, callDuration, callStartedTime, callEstablishedTime, callEndedTime, callAnswerTime, callEndReason, sessionId) {
     this.callId = callId;
     this.remoteId = remoteId;
@@ -22739,7 +22741,9 @@ var CallDetails = {
       callEndedTime: this.callEndedTime,
       callAnswerTime: this.callAnswerTime,
       callEndReason: this.callEndReason,
-      sessionId: this.sessionId
+      sessionId: this.sessionId,
+      callSid: this.callSid,
+      sipHeaders: this.sipHeaders
     };
     return callDetailsObj;
   }
@@ -23793,6 +23797,8 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _api_omAPI_DiagnosticsListener__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ../api/omAPI/DiagnosticsListener */ "./src/api/omAPI/DiagnosticsListener.js");
 /* harmony import */ var _listeners_Callback__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./Callback */ "./src/listeners/Callback.js");
 /* harmony import */ var _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! @exotel-npm-dev/webrtc-core-sdk */ "./node_modules/@exotel-npm-dev/webrtc-core-sdk/index.js");
+/* harmony import */ var _api_callAPI_CallDetails__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! ../api/callAPI/CallDetails */ "./src/api/callAPI/CallDetails.js");
+
 
 
 
@@ -23920,6 +23926,20 @@ function ExDelegationHandler(exClient_) {
   this.onRecieveInvite = function (incomingSession) {
     logger.log("delegationHandler: onRecieveInvite\n");
     exClient.callFromNumber = incomingSession.incomingInviteRequest.message.from.displayName;
+    _api_callAPI_CallDetails__WEBPACK_IMPORTED_MODULE_9__.CallDetails.callSid = incomingSession.incomingInviteRequest.message.headers['X-Exotel-Callsid'][0].raw;
+    _api_callAPI_CallDetails__WEBPACK_IMPORTED_MODULE_9__.CallDetails.callId = incomingSession.incomingInviteRequest.message.headers['Call-ID'][0].raw;
+    const result = {};
+    const obj = incomingSession.incomingInviteRequest.message.headers;
+    for (let key in obj) {
+      if (obj.hasOwnProperty(key)) {
+        if (obj[key].length == 1) {
+          result[key] = obj[key][0].raw;
+        } else if (obj[key].length > 1) {
+          result[key] = obj[key].map(item => item.raw);
+        }
+      }
+    }
+    _api_callAPI_CallDetails__WEBPACK_IMPORTED_MODULE_9__.CallDetails.sipHeaders = result;
   };
   this.onPickCall = function () {
     logger.log("delegationHandler: onPickCall\n");
