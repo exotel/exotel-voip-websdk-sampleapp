@@ -1,4 +1,8 @@
 Changelog
+
+## v1.0.14 12 September, 2024
+-[VST-807] Added call details with callsid and sip headers
+
 ## v1.0.11 26 August 2024
 - upgraded sdk to 1.0.11, Added real-time selection for microphone and speaker devices, and implemented callbacks to notify the application when a device change occurs.
 
