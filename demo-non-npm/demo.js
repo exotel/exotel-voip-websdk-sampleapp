@@ -27,7 +27,6 @@ exWebClient.registerAudioDeviceChangeCallback(function (deviceId) {
 });
 
 var call = null;
-var shouldAutoRetry = false;
 
 
 function initSDK() {
@@ -56,10 +55,8 @@ function UserAgentRegistration() {
 
 function registerToggle() {
     if (document.getElementById("registerButton").innerHTML === "REGISTER") {
-        shouldAutoRetry = true;
         UserAgentRegistration();
     } else {
-        shouldAutoRetry = false;
         exWebClient.unregister();
     }
 }
@@ -85,9 +82,6 @@ function RegisterEventCallBack(state, sipInfo) {
         document.getElementById("registerButton").innerHTML = "UNREGISTER";
     } else {
         document.getElementById("registerButton").innerHTML = "REGISTER";
-        if (shouldAutoRetry) {
-            exWebClient.DoRegister();
-        }
     }
 }
 
