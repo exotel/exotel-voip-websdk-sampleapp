@@ -28,7 +28,10 @@ exWebClient.registerAudioDeviceChangeCallback(function (deviceId) {
 
 var call = null;
 var shouldAutoRetry = false;
-function UserAgentRegistration() {
+
+
+function initSDK() {
+    isInitialized = true;
     var sipInfo = JSON.parse(phone)[0]
 
     var sipAccountInfo = {
@@ -43,6 +46,10 @@ function UserAgentRegistration() {
         'endpoint': sipInfo.EndPoint
     };
     exWebClient.initWebrtc(sipAccountInfo, RegisterEventCallBack, CallListenerCallback, SessionCallback)
+
+}
+
+function UserAgentRegistration() {
     console.log("Test.js: Calling DoRegister")
     exWebClient.DoRegister();
 }
@@ -194,3 +201,5 @@ window.addEventListener('load', populateDeviceDropdowns);
 
 // Re-populate devices list when the device list changes
 navigator.mediaDevices.addEventListener('devicechange', populateDeviceDropdowns);
+
+initSDK();
