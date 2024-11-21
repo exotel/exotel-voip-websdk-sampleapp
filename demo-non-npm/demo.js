@@ -27,7 +27,6 @@ exWebClient.registerAudioDeviceChangeCallback(function (deviceId) {
 });
 
 var call = null;
-var shouldAutoRetry = false;
 
 
 function initSDK() {
@@ -54,13 +53,17 @@ function UserAgentRegistration() {
     exWebClient.DoRegister();
 }
 
+var toggleRegister = true;
 function registerToggle() {
-    if (document.getElementById("registerButton").innerHTML === "REGISTER") {
-        shouldAutoRetry = true;
+    let toggler = toggleRegister;
+    toggleRegister = !toggleRegister;
+    if (toggler) {
         UserAgentRegistration();
+        document.getElementById("registerButton").innerHTML = "STOP";
     } else {
-        shouldAutoRetry = false;
-        exWebClient.unregister();
+        console.log("doing unregistration");
+        exWebClient.UnRegister();
+        document.getElementById("registerButton").innerHTML = "START";
     }
 }
 
@@ -81,14 +84,6 @@ function CurrentOutputDeviceCallback(currentOutputDevice) {
 
 function RegisterEventCallBack(state, sipInfo) {
     document.getElementById("status").innerHTML = state;
-    if (state === 'registered') {
-        document.getElementById("registerButton").innerHTML = "UNREGISTER";
-    } else {
-        document.getElementById("registerButton").innerHTML = "REGISTER";
-        if (shouldAutoRetry) {
-            exWebClient.DoRegister();
-        }
-    }
 }
 
 function SessionCallback(state, sipInfo) {
