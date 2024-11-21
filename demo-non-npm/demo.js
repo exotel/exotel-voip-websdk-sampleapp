@@ -53,11 +53,17 @@ function UserAgentRegistration() {
     exWebClient.DoRegister();
 }
 
+var toggleRegister = true;
 function registerToggle() {
-    if (document.getElementById("registerButton").innerHTML === "REGISTER") {
+    let toggler = toggleRegister;
+    toggleRegister = !toggleRegister;
+    if (toggler) {
         UserAgentRegistration();
+        document.getElementById("registerButton").innerHTML = "STOP";
     } else {
-        exWebClient.unregister();
+        console.log("doing unregistration");
+        exWebClient.UnRegister();
+        document.getElementById("registerButton").innerHTML = "START";
     }
 }
 
@@ -78,11 +84,6 @@ function CurrentOutputDeviceCallback(currentOutputDevice) {
 
 function RegisterEventCallBack(state, sipInfo) {
     document.getElementById("status").innerHTML = state;
-    if (state === 'registered') {
-        document.getElementById("registerButton").innerHTML = "UNREGISTER";
-    } else {
-        document.getElementById("registerButton").innerHTML = "REGISTER";
-    }
 }
 
 function SessionCallback(state, sipInfo) {
