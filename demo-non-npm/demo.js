@@ -45,7 +45,6 @@ function initSDK() {
         'endpoint': sipInfo.EndPoint
     };
     exWebClient.initWebrtc(sipAccountInfo, RegisterEventCallBack, CallListenerCallback, SessionCallback)
-    exWebClient.setPreferredCodec("opus");
 }
 
 function UserAgentRegistration() {
