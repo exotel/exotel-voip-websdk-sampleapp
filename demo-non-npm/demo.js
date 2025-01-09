@@ -45,7 +45,6 @@ function initSDK() {
         'endpoint': sipInfo.EndPoint
     };
     exWebClient.initWebrtc(sipAccountInfo, RegisterEventCallBack, CallListenerCallback, SessionCallback)
-
 }
 
 function UserAgentRegistration() {

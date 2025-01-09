@@ -1,5 +1,8 @@
 Changelog
 
+## v1.0.19 09 January, 2025
+-[VST-865] Added option in websdk to select the codec preference
+
 ## v1.0.16 21 November, 2024
 -[VST-885] Retry Support for SDK Websocket Connection
 

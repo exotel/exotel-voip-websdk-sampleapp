@@ -1,6 +1,6 @@
 /*!
  * 
- * WebRTC CLient SIP version 1.0.16
+ * WebRTC CLient SIP version 1.0.19
  *
  */
 (function webpackUniversalModuleDefinition(root, factory) {
@@ -21233,6 +21233,90 @@ function postInit(onInitDoneCallback) {
 	onInitDoneCallback();
 }
 
+const addPreferredCodec = (description) => {
+	logger.log("sipjsphone:addPreferredCodec entry");
+	// Ensure a preferred codec is set
+	if (!SIPJSPhone.preferredCodec) {
+		logger.info("sipjsphone:addPreferredCodec: No preferred codec set. Using default.");
+		return Promise.resolve(description);
+	}
+
+	const { payloadType, rtpMap, fmtp } = SIPJSPhone.preferredCodec;
+	const codecRtpMap = `a=rtpmap:${payloadType} ${rtpMap}`;
+	const codecFmtp = fmtp ? `a=fmtp:${payloadType} ${fmtp}` : "";
+
+	logger.log("sipjsphone:addPreferredCodec: Original SDP:", description.sdp);
+
+	// Parse SDP into lines
+	let sdpLines = description.sdp.split("\r\n");
+
+	// Check if Opus is already in the SDP
+	const existingOpusIndex = sdpLines.findIndex((line) => line.includes(`a=rtpmap`) && line.includes("opus/48000/2"));
+	const audioMLineIndex = sdpLines.findIndex((line) => line.startsWith("m=audio"));
+
+	if (existingOpusIndex !== -1 && audioMLineIndex !== -1) {
+		logger.log("sipjsphone:addPreferredCodec: Opus codec already exists. Prioritizing it.");
+
+		// Extract and modify the audio m-line
+		let audioMLine = sdpLines[audioMLineIndex];
+		audioMLine = audioMLine.replace("RTP/SAVP", "RTP/AVP");
+
+		const codecs = audioMLine.split(" ");
+		const mLineStart = codecs.slice(0, 3); // "m=audio <port> <protocol>"
+		const mLineCodecs = codecs.slice(3);
+
+		// Move existing Opus payload type to the top
+		const opusPayloadType = sdpLines[existingOpusIndex].match(/a=rtpmap:(\d+)/)[1];
+		const opusIndex = mLineCodecs.indexOf(opusPayloadType);
+
+		if (opusIndex !== -1) {
+			// Remove Opus from its current position
+			mLineCodecs.splice(opusIndex, 1);
+		}
+		// Add Opus to the beginning of the codec list
+		mLineCodecs.unshift(opusPayloadType);
+
+		// Update the audio m-line
+		sdpLines[audioMLineIndex] = `${mLineStart.join(" ")} ${mLineCodecs.join(" ")}`;
+	} else if (audioMLineIndex !== -1) {
+		logger.log("sipjsphone:addPreferredCodec: Opus codec not found. Adding it to SDP.");
+
+		// Extract and modify the audio m-line
+		let audioMLine = sdpLines[audioMLineIndex];
+		audioMLine = audioMLine.replace("RTP/SAVP", "RTP/AVP");
+
+		const codecs = audioMLine.split(" ");
+		const mLineStart = codecs.slice(0, 3); // "m=audio <port> <protocol>"
+		const mLineCodecs = codecs.slice(3);
+
+		// Add Opus payload type to the top
+		mLineCodecs.unshift(payloadType.toString());
+
+		// Update the audio m-line
+		sdpLines[audioMLineIndex] = `${mLineStart.join(" ")} ${mLineCodecs.join(" ")}`;
+
+		// Add Opus-specific attributes to the SDP
+		if (!sdpLines.includes(codecRtpMap)) {
+			sdpLines.splice(audioMLineIndex + 1, 0, codecRtpMap); // Add rtpmap after m=audio
+		}
+		if (fmtp && !sdpLines.includes(codecFmtp)) {
+			sdpLines.splice(audioMLineIndex + 2, 0, codecFmtp); // Add fmtp after rtpmap
+		}
+	} else {
+		logger.error("sipjsphone:addPreferredCodec: No audio m-line found in SDP. Cannot modify.");
+		return Promise.resolve(description);
+	}
+
+	// Remove any duplicate lines
+	sdpLines = [...new Set(sdpLines)];
+
+	// Combine back into SDP
+	description.sdp = sdpLines.join("\r\n");
+	logger.log("sipjsphone:addPreferredCodec: Modified SDP:", description.sdp);
+
+	return Promise.resolve(description);
+};
+
 function sipRegister() {
 
 	lastRegistererState = "";
@@ -21951,6 +22035,23 @@ const SIPJSPhone = {
 		return bMicEnable;
 	},
 
+	setPreferredCodec: (codecName) => {
+		logger.log("sipjsphone:setPreferredCodec entry");
+		const codecPayloadTypes = {
+			opus: { payloadType: 111, rtpMap: "opus/48000/2", fmtp: "minptime=10;useinbandfec=1" },
+		};
+
+		const preferredCodec = codecPayloadTypes[codecName.toLowerCase()];
+		if (!preferredCodec) {
+			logger.error("sipjsphone:setPreferredCodec: Unsupported code" + codecName + "specified.");
+			SIPJSPhone.preferredCodec = null; // Clear codec details if unsupported
+			return;
+		}
+
+		SIPJSPhone.preferredCodec = preferredCodec;
+		logger.log("sipjsphone:setPreferredCodec: Preferred codec set to " + codecName);
+	},
+
 	pickPhoneCall: () => {
 		var newSess = ctxSip.Sessions[ctxSip.callActiveID];
 		logger.log("pickphonecall ", ctxSip.callActiveID);
@@ -21959,13 +22060,16 @@ const SIPJSPhone = {
 				newSess.accept({
 					sessionDescriptionHandlerOptions: {
 						constraints: { audio: { deviceId: _audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.currentAudioInputDeviceId }, video: false }
-					}
+					},
+					sessionDescriptionHandlerModifiers: [addPreferredCodec]
 				}).catch((e) => {
 					onUserSessionAcceptFailed(e);
 				});
 			} else {
 
-				newSess.accept().catch((e) => {
+				newSess.accept({
+					sessionDescriptionHandlerModifiers: [addPreferredCodec]
+				}).catch((e) => {
 					onUserSessionAcceptFailed(e);
 				});
 			}
@@ -22393,6 +22497,10 @@ const webrtcSIPPhone = {
 	changeAudioOutputDevice(deviceId, onSuccess, onError) {
 		logger.log(`webrtcSIPPhone:changeAudioOutputDevice entry`);
 		_sipjsphone__WEBPACK_IMPORTED_MODULE_1__["default"].changeAudioOutputDevice(deviceId, onSuccess, onError);
+	},
+	setPreferredCodec(codecName) {
+		logger.log("webrtcSIPPhone:setPreferredCodec entry");
+		_sipjsphone__WEBPACK_IMPORTED_MODULE_1__["default"].setPreferredCodec(codecName);
 	},
 	registerAudioDeviceChangeCallback(audioInputDeviceChangeCallback, audioOutputDeviceChangeCallback, onDeviceChangeCallback) {
 		logger.log(`webrtcSIPPhone:registerAudioDeviceChangeCallback  entry`);
@@ -23449,7 +23557,7 @@ var logger = _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_0__.webrtc
  * @param {*} sipAccountInfo 
  * @param {*} exWebClient 
  */
-function DoRegister(sipAccountInfo, exWebClient) {
+function DoRegister(sipAccountInfo, exWebClient, delay = 500) {
   /**
    * When user registers the agent phone for the first time, register your callback onto webrtc client
    */
@@ -23468,7 +23576,7 @@ function DoRegister(sipAccountInfo, exWebClient) {
       sipAccountInfo.accountSid,
       //accountSid
       '', sipAccountInfo); // subscriberToken        
-    }, 500);
+    }, delay);
   } catch (e) {
     logger.log("Register failed ", e);
   }
@@ -24137,7 +24245,7 @@ class ExotelWebClient {
       }
       if (this.shouldAutoRetry) {
         logger.log("ExWebClient:registerEventCallback Autoretrying");
-        (0,_api_registerAPI_RegisterListener__WEBPACK_IMPORTED_MODULE_1__.DoRegister)(this.sipAccountInfo, this);
+        (0,_api_registerAPI_RegisterListener__WEBPACK_IMPORTED_MODULE_1__.DoRegister)(this.sipAccountInfo, this, 5000);
       }
     } else if (event === "sent_request") {
       /**
@@ -24323,11 +24431,15 @@ class ExotelWebClient {
     logger.log(`in changeAudioOutputDevice() of ExWebClient.js`);
     _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_8__.webrtcSIPPhone.changeAudioOutputDevice(deviceId, onSuccess, onError);
   }
+  setPreferredCodec(codecName) {
+    logger.log("ExWebClient:setPreferredCodec entry");
+    _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_8__.webrtcSIPPhone.setPreferredCodec(codecName);
+  }
   registerLoggerCallback(callback) {
     logger.registerLoggerCallback(callback);
   }
-  registerAudioDeviceChangeCallback(audioInputDeviceChangeCallback, audioOutputDeviceChangeCallback) {
-    _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_8__.webrtcSIPPhone.registerAudioDeviceChangeCallback(audioInputDeviceChangeCallback, audioOutputDeviceChangeCallback);
+  registerAudioDeviceChangeCallback(audioInputDeviceChangeCallback, audioOutputDeviceChangeCallback, onDeviceChangeCallback) {
+    _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_8__.webrtcSIPPhone.registerAudioDeviceChangeCallback(audioInputDeviceChangeCallback, audioOutputDeviceChangeCallback, onDeviceChangeCallback);
   }
 }
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (ExotelWebClient);
