@@ -1,5 +1,8 @@
 Changelog
 
+## v1.0.20 28 January, 2025
+-[VST-940] Added checks for X-Exotel-Callsid, Call-ID, and LegSid headers in onRecieveInvite.
+
 ## v1.0.19 09 January, 2025
 -[VST-865] Added option in websdk to select the codec preference
 
