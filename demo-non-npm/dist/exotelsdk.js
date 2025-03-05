@@ -1,6 +1,6 @@
 /*!
  * 
- * WebRTC CLient SIP version 1.0.20
+ * WebRTC CLient SIP version 1.0.21
  *
  */
 (function webpackUniversalModuleDefinition(root, factory) {
@@ -8175,7 +8175,10 @@ function postInit(onInitDoneCallback) {
       } else if (s.state == SIP.SessionState.Established) {
         s.bye();
       } else if (s.reject) {
-        s.reject();
+        s.reject({
+          statusCode: 486,
+          reasonPhrase: "Busy"
+        });
       } else if (s.cancel) {
         s.cancel();
       }
@@ -8464,7 +8467,10 @@ function registerPhoneEventListeners() {
       _webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].onRecieveInvite(incomingSession);
       _webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].sendWebRTCEventsToFSM("i_new_call", "CALL");
     } else {
-      incomingSession.reject();
+      incomingSession.reject({
+        statusCode: 480,
+        reasonPhrase: "4001"
+      });
     }
   };
   ctxSip.phone.start();
