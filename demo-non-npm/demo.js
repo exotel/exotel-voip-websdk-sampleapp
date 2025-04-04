@@ -45,6 +45,7 @@ function initSDK() {
         'endpoint': sipInfo.EndPoint
     };
     exWebClient.initWebrtc(sipAccountInfo, RegisterEventCallBack, CallListenerCallback, SessionCallback)
+    exWebClient.setPreferredCodec("opus")
 }
 
 function UserAgentRegistration() {
@@ -91,7 +92,7 @@ function SessionCallback(state, sipInfo) {
 
 function toggleMuteButton() {
     if (call) {
-        call.Mute();
+        call.MuteToggle();
         if (document.getElementById("muteButton").innerHTML === "UNMUTE") {
             document.getElementById("muteButton").innerHTML = "MUTE";
         } else {
@@ -137,6 +138,10 @@ function changeAudioInputDevice() {
         () => console.log(`Input device changed successfully`),
         (error) => console.log(`Failed to change input device: ${error}`)
     );
+}
+
+function downloadLogs() {
+    exWebClient.downloadLogs();
 }
 
 // Function to change output device change
