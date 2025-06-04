@@ -1,204 +1,125 @@
-const exWebClient = new exotelSDK.ExotelWebClient();
-exWebClient.registerLoggerCallback(function (type, message, args) {
+/* demo.js  –  parallel UI panels for every credential blob
+ * ─────────────────────────────────────────────────────────── */
+const { ExotelWebClient } = window.exotelSDK;
 
-    switch (type) {
-        case "log":
-            console.log(`demo: ${message}`, args);
-            break;
-        case "info":
-            console.info(`demo: ${message}`, args);
-            break;
-        case "error":
-            console.error(`demo: ${message}`, args);
-            break;
-        case "warn":
-            console.warn(`demo: ${message}`, args);
-            break;
-        default:
-            console.log(`demo: ${message}`, args);
-            break;
-    }
+/* ── collect creds from phone.js / phone2.js ───────────────── */
+const blobs = [];
+if (typeof phone  !== "undefined") blobs.push(...JSON.parse(phone));
+if (typeof phone2 !== "undefined") blobs.push(...JSON.parse(phone2));
+if (!blobs.length) { alert("Add creds in phone.js / phone2.js"); throw 0; }
+
+const $ = id => document.getElementById(id);
+
+/* container in DOM where we’ll inject panels */
+const container = $("accounts");
+
+/* keep a handle per account */
+const registry = new Map();
+
+/* ── build one control panel per account ────────────────────── */
+blobs.forEach((cred, idx) => {
+  const key = `${cred.Username}@${cred.Domain}`;
+  const html = /* html */`
+    <div class="acct" id="acct_${idx}">
+      <h2>${key}
+        <button class="logBtn" id="log_${idx}">Logs</button>
+      </h2>
+
+      <fieldset>
+        <legend>Registration</legend>
+        <button id="reg_${idx}">START</button>
+        Status: <span id="status_${idx}" class="bold">offline</span>
+      </fieldset>
+
+      <fieldset>
+        <legend>Call</legend>
+        <button id="acc_${idx}">ACCEPT</button>
+        <button id="rej_${idx}">REJECT</button>
+        <button id="mute_${idx}">MUTE</button>
+        <button id="hold_${idx}">HOLD</button><br><br>
+        DTMF <input id="dtmf_${idx}" maxlength="1" size="1">
+        &nbsp;Call state: <span id="call_${idx}" class="bold">idle</span>
+      </fieldset>
+    </div>`;
+  container.insertAdjacentHTML("beforeend", html);
+
+  /* turn cred blob → sipAccountInfo */
+  const sip = {
+    userName   : cred.Username,
+    authUser   : cred.Username,
+    domain     : `${cred.HostServer}:${cred.Port}`,
+    sipdomain  : cred.Domain,
+    displayname: cred.DisplayName ?? cred.Username,
+    secret     : cred.Password,
+    port       : cred.Port,
+    security   : cred.Security,
+    endpoint   : cred.EndPoint
+  };
+
+  /* spin up SDK */
+  const sdk = new ExotelWebClient();
+  sdk.registerLoggerCallback((t,m,a)=>console[t](`[${key}]`,m,...(a??[])));
+
+  /* initialise (no auto-register) */
+  sdk.initWebrtc(
+    sip,
+    (ev)=> update(`status_${idx}`, ev),
+    (ev,phone,call)=>{ store.call=call; update(`call_${idx}`, ev); },
+    ()=>{}
+  );
+
+  const store = { sdk, sip, reg:false, call:null };
+  registry.set(idx, store);
+
+  /* bind UI controls */
+  $("reg_"+idx).onclick = () => {
+    store.reg ? sdk.UnRegister() : sdk.DoRegister();
+    store.reg = !store.reg;
+    $("reg_"+idx).textContent = store.reg ? "STOP" : "START";
+  };
+  $("acc_"+idx).onclick  = () => store.call?.Answer?.();
+  $("rej_"+idx).onclick  = () => store.call?.Hangup?.();
+  $("mute_"+idx).onclick = () => {
+    if (!store.call?.MuteToggle) return;
+    store.call.MuteToggle();
+    toggleText("mute_"+idx,"MUTE","UNMUTE");
+  };
+  $("hold_"+idx).onclick = () => {
+    if (!store.call?.HoldToggle) return;
+    store.call.HoldToggle();
+    toggleText("hold_"+idx,"HOLD","UNHOLD");
+  };
+  $("dtmf_"+idx).onkeyup = e => {
+    if (e.key!=="Enter"||!e.target.value) return;
+    store.call?.sendDTMF?.(e.target.value); e.target.value="";
+  };
+  $("log_"+idx).onclick = () => sdk.downloadLogs?.();
 });
 
-exWebClient.registerAudioDeviceChangeCallback(function (deviceId) {
-    console.log(`demo:audioInputDeviceCallback device changed to ${deviceId}`);
-}, function (deviceId) {
-    console.log(`demo:audioOutputDeviceCallback device changed to ${deviceId}`);
-});
+/* helpers */
+function update(id,val){ $(id).textContent=val; }
+function toggleText(id,a,b){ const el=$(id); el.textContent=el.textContent===a?b:a; }
 
-var call = null;
+/* ── shared audio-device pickers (affect active tab) ────────── */
+const inSel  = $("inputDevices");
+const outSel = $("outputDevices");
 
-
-function initSDK() {
-    isInitialized = true;
-    var sipInfo = JSON.parse(phone)[0]
-
-    var sipAccountInfo = {
-        'userName': sipInfo.Username,
-        'authUser': sipInfo.Username,
-        'sipdomain': sipInfo.Domain,
-        'domain': sipInfo.HostServer + ":" + sipInfo.Port,
-        'displayname': sipInfo.DisplayName,
-        'secret': sipInfo.Password,
-        'port': sipInfo.Port,
-        'security': sipInfo.Security,
-        'endpoint': sipInfo.EndPoint
-    };
-    exWebClient.initWebrtc(sipAccountInfo, RegisterEventCallBack, CallListenerCallback, SessionCallback)
-    exWebClient.setPreferredCodec("opus")
+async function refreshDevices(){
+  const devs=await navigator.mediaDevices.enumerateDevices();
+  inSel.innerHTML=""; outSel.innerHTML="";
+  devs.filter(d=>d.kind==="audioinput" )
+      .forEach(d=>append(inSel ,d));
+  devs.filter(d=>d.kind==="audiooutput")
+      .forEach(d=>append(outSel,d));
+  function append(sel,d){
+    const o=document.createElement("option");
+    o.value=d.deviceId; o.textContent=d.label||d.kind;
+    sel.appendChild(o);
+  }
 }
+await refreshDevices();
+navigator.mediaDevices.addEventListener("devicechange",refreshDevices);
 
-function UserAgentRegistration() {
-    console.log("Test.js: Calling DoRegister")
-    exWebClient.DoRegister();
-}
-
-var toggleRegister = true;
-function registerToggle() {
-    let toggler = toggleRegister;
-    toggleRegister = !toggleRegister;
-    if (toggler) {
-        UserAgentRegistration();
-        document.getElementById("registerButton").innerHTML = "STOP";
-    } else {
-        console.log("doing unregistration");
-        exWebClient.UnRegister();
-        document.getElementById("registerButton").innerHTML = "START";
-    }
-}
-
-function CallListenerCallback(callObj, eventType, sipInfo) {
-    call = exWebClient.getCall();
-    document.getElementById("call_status").innerHTML = eventType;
-}
-
-function CurrentInputDeviceCallback(currentInputDevice) {
-    console.log("Current input device: ", currentInputDevice);
-    document.getElementById("current_input_device").innerHTML = currentInputDevice;
-}
-
-function CurrentOutputDeviceCallback(currentOutputDevice) {
-    console.log("Current output device: ", currentOutputDevice);
-    document.getElementById("current_output_device").innerHTML = currentOutputDevice;
-}
-
-function RegisterEventCallBack(state, sipInfo) {
-    document.getElementById("status").innerHTML = state;
-}
-
-function SessionCallback(state, sipInfo) {
-    console.log('Session state:', state, 'for number...', sipInfo);
-}
-
-function toggleMuteButton() {
-    if (call) {
-        call.MuteToggle();
-        if (document.getElementById("muteButton").innerHTML === "UNMUTE") {
-            document.getElementById("muteButton").innerHTML = "MUTE";
-        } else {
-            document.getElementById("muteButton").innerHTML = "UNMUTE";
-        }
-    }
-}
-
-function acceptCall() {
-    if (call) {
-        call.Answer();
-    }
-}
-
-function rejectCall() {
-    if (call) {
-        call.Hangup();
-    }
-}
-
-function toggleHoldButton() {
-    if (call) {
-        call.HoldToggle();
-        if (document.getElementById("holdButton").innerHTML === "UNHOLD") {
-            document.getElementById("holdButton").innerHTML = "HOLD";
-        } else {
-            document.getElementById("holdButton").innerHTML = "UNHOLD";
-        }
-    }
-}
-
-function sendDTMF(digit) {
-    if (call) {
-        call.sendDTMF(digit);
-    }
-}
-
-// Function to change input device change
-function changeAudioInputDevice() {
-    const selectedDeviceId = document.getElementById('inputDevices').value;
-    exWebClient.changeAudioInputDevice(
-        selectedDeviceId,
-        () => console.log(`Input device changed successfully`),
-        (error) => console.log(`Failed to change input device: ${error}`)
-    );
-}
-
-function downloadLogs() {
-    exWebClient.downloadLogs();
-}
-
-// Function to change output device change
-function changeAudioOutputDevice() {
-    const selectedDeviceId = document.getElementById('outputDevices').value;
-    exWebClient.changeAudioOutputDevice(
-        selectedDeviceId,
-        () => console.log(`Output device changed successfully`),
-        (error) => console.log(`Failed to change output device: ${error}`)
-    );
-}
-
-//populate the device dropdowns
-async function populateDeviceDropdowns() {
-
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    const inputDevices = devices.filter(device => device.kind === 'audioinput');
-    const outputDevices = devices.filter(device => device.kind === 'audiooutput');
-    const defaultInputDevice = inputDevices.find(device => device.deviceId === "default");
-    const defaultOutputDevice = outputDevices.find(device => device.deviceId === "default");
-
-    const inputDropdown = document.getElementById('inputDevices');
-    inputDropdown.innerHTML = "";
-    const outputDropdown = document.getElementById('outputDevices');
-    outputDropdown.innerHTML = "";
-    inputDevices.forEach(device => {
-        if (device.deviceId == "" || device.deviceId == "default") {
-            return;
-        }
-
-        const option = document.createElement('option');
-        option.value = device.deviceId;
-        if (device.groupId == defaultInputDevice.groupId) {
-            option.selected = true;
-        }
-        option.textContent = device.label || `Input Device ${device.deviceId}`;
-        inputDropdown.appendChild(option);
-    });
-
-    outputDevices.forEach(device => {
-        if (device.deviceId == "" || device.deviceId == "default") {
-            return;
-        }
-        const option = document.createElement('option');
-        option.value = device.deviceId;
-        if (device.groupId == defaultOutputDevice.groupId) {
-            option.selected = true;
-        }
-        option.textContent = device.label || `Output Device ${device.deviceId}`;
-        outputDropdown.appendChild(option);
-    });
-}
-
-// Populate dropdowns when the page loads
-window.addEventListener('load', populateDeviceDropdowns);
-
-// Re-populate devices list when the device list changes
-navigator.mediaDevices.addEventListener('devicechange', populateDeviceDropdowns);
-
-initSDK();
+/* whichever call is currently ringing/speaking will be affected */
+inSel.onchange  = e => registry.forEach(r=>r.sdk.changeAudioInputDevice (e.target.value));
+outSel.onchange = e => registry.forEach(r=>r.sdk.changeAudioOutputDevice(e.target.value));

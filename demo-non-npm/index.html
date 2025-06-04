@@ -1,52 +1,63 @@
-<!DOCTYPE html>
-<html>
-
+<!doctype html>
+<html lang="en">
 <head>
-	<title>WebPhone</title>
-
-	<script type="text/javascript" src="./dist/exotelsdk.js"></script>
-	<script type="text/javascript" src="phone.js"></script>
-	<script type="text/javascript" src="demo.js"></script>
-
+<meta charset="utf-8">
+<title>Exotel WebRTC SDK – multi-account demo (parallel panels)</title>
+<style>
+  body{font-family:Arial,Helvetica,sans-serif;margin:1.3rem}
+  fieldset{margin:1rem 0;padding:.8rem 1rem}
+  button,select,input{margin:.25rem .4rem .25rem 0}
+  .acct{border:1px solid #999;border-radius:.4rem;padding:1rem;margin:1rem 0}
+  .acct h2{margin:.2rem 0 .6rem 0;font-size:1.1rem}
+  .bold{font-weight:bold}
+  .logBtn{float:right}
+</style>
 </head>
 
 <body>
+<h1>Exotel WebRTC SDK demo – multiple accounts, one tab</h1>
 
-	<b>Register Status : </b>
-	<b id="status"> unregister</b>
-	<br />
-	<br />
-	<button id="registerButton" onclick="registerToggle()">START</button>
-	<br />
-	<br />
-	<b>Call Status : </b>
-	<b id="call_status"> </b>
-	<br />
-	<br />
-	<button onclick="acceptCall()">Accept Call</button>
-	<button onclick="rejectCall()">END CALL</button>
-	<button id="muteButton" onclick="toggleMuteButton()">MUTE</button>
-	<button id="holdButton" onclick="toggleHoldButton()">HOLD</button>
-	<button id="dtmfButton1" onclick="sendDTMF(1)">DTMF 1</button>
-	<button id="dtmfButton2" onclick="sendDTMF(2)">DTMF 2</button>
-	<br />
-	<br />
-	<!-- Dropdown for Input Devices -->
-	<b><label for="inputDevices">Select Input Device:</label></b>
-	<select id="inputDevices"></select>
-	<button id="changeInputButton" onclick="changeAudioInputDevice()">Change Input Device</button>
-	<br />
-	<br />
-	<!-- Dropdown for Output Devices -->
-	<b><label for="outputDevices">Select Output Device:</label></b>
-	<select id="outputDevices"></select>
-	<button id="changeOutputButton" onclick="changeAudioOutputDevice()">Change Output Device</button>
-	<br />
-	<br />
-	<button id="downloadLogs" onclick="downloadLogs()">Download Logs</button>
-	<br />
-	<br />
+<!-- container – JS will inject one .acct section per credential -->
+<div id="accounts"></div>
 
+<!-- shared audio-device selectors (affect whichever call is active) -->
+<fieldset>
+  <legend>Audio devices</legend>
+  Input  <select id="inputDevices"></select>
+  Output <select id="outputDevices"></select>
+</fieldset>
+
+<!-- credential blobs stay exactly as before -->
+<script src="phone.js"></script>
+<script src="phone2.js"></script>
+
+<!-- tiny Webpack-wav lookup shim (unchanged) -->
+<script>
+(function(){
+  const wav={"./static/beep.wav":"static/beep.wav",
+             "./static/dtmf.wav":"static/dtmf.wav",
+             "./static/ringtone.wav":"static/ringtone.wav",
+             "./static/ringbacktone.wav":"static/ringbacktone.wav"};
+  window.webpackChunk=window.webpackChunk||[];
+  const push=window.webpackChunk.push.bind(window.webpackChunk);
+  window.webpackChunk.push=function(a){
+    if(typeof __webpack_require__!=="undefined"){
+      Object.entries(wav).forEach(([r,u])=>{
+        if(!__webpack_require__.m[r]){
+          const id=Object.keys(__webpack_require__.m).length;
+          __webpack_require__.m[id]=m=>{m.exports=u};
+          __webpack_require__.m[r]=__webpack_require__.m[id];
+        }
+      });
+    }
+    return push(a);
+  };
+})();
+</script>
+
+<!-- SDK bundle (UMD) -->
+<script src="dist/exotelsdk.js"></script>
+<!-- demo logic (ES-module) -->
+<script type="module" src="demo.js"></script>
 </body>
-
 </html>
