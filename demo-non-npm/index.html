@@ -1,63 +1,58 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<title>Exotel WebRTC SDK – multi-account demo (parallel panels)</title>
-<style>
-  body{font-family:Arial,Helvetica,sans-serif;margin:1.3rem}
-  fieldset{margin:1rem 0;padding:.8rem 1rem}
-  button,select,input{margin:.25rem .4rem .25rem 0}
-  .acct{border:1px solid #999;border-radius:.4rem;padding:1rem;margin:1rem 0}
-  .acct h2{margin:.2rem 0 .6rem 0;font-size:1.1rem}
-  .bold{font-weight:bold}
-  .logBtn{float:right}
-</style>
+  <meta charset="utf-8" />
+  <title>Multi-account WebRTC sample</title>
+
+  <style>
+    body       { font: 16px/1.4 -apple-system, BlinkMacSystemFont, sans-serif; }
+    .panel     { border:1px solid #ccc; border-radius:4px; padding:24px; margin:32px 0;}
+    .panel h2  { margin-top:0; font-size:28px; }
+    button     { margin:4px 6px 0 0; padding:4px 16px; }
+    button:disabled { opacity:.35 }
+  </style>
 </head>
 
 <body>
-<h1>Exotel WebRTC SDK demo – multiple accounts, one tab</h1>
+  <h1>Multi-account WebRTC sample</h1>
 
-<!-- container – JS will inject one .acct section per credential -->
-<div id="accounts"></div>
+  <!-- account-1 -->
+  <section id="a1" class="panel">
+    <h2      id="u1">loading …</h2>
+    <p>Status: <strong id="s1">—</strong></p>
+    <p>Call&nbsp;&nbsp;: <span   id="c1">—</span></p>
 
-<!-- shared audio-device selectors (affect whichever call is active) -->
-<fieldset>
-  <legend>Audio devices</legend>
-  Input  <select id="inputDevices"></select>
-  Output <select id="outputDevices"></select>
-</fieldset>
+    <button id="stop1">STOP</button>
+    <button id="accept1">ACCEPT</button>
+    <button id="reject1">REJECT</button>
+    <button id="mute1">MUTE</button>
+    <button id="hold1">HOLD</button>
+  </section>
 
-<!-- credential blobs stay exactly as before -->
-<script src="phone.js"></script>
-<script src="phone2.js"></script>
+  <!-- account-2 -->
+  <section id="a2" class="panel">
+    <h2      id="u2">loading …</h2>
+    <p>Status: <strong id="s2">—</strong></p>
+    <p>Call&nbsp;&nbsp;: <span   id="c2">—</span></p>
 
-<!-- tiny Webpack-wav lookup shim (unchanged) -->
-<script>
-(function(){
-  const wav={"./static/beep.wav":"static/beep.wav",
-             "./static/dtmf.wav":"static/dtmf.wav",
-             "./static/ringtone.wav":"static/ringtone.wav",
-             "./static/ringbacktone.wav":"static/ringbacktone.wav"};
-  window.webpackChunk=window.webpackChunk||[];
-  const push=window.webpackChunk.push.bind(window.webpackChunk);
-  window.webpackChunk.push=function(a){
-    if(typeof __webpack_require__!=="undefined"){
-      Object.entries(wav).forEach(([r,u])=>{
-        if(!__webpack_require__.m[r]){
-          const id=Object.keys(__webpack_require__.m).length;
-          __webpack_require__.m[id]=m=>{m.exports=u};
-          __webpack_require__.m[r]=__webpack_require__.m[id];
-        }
-      });
-    }
-    return push(a);
-  };
-})();
-</script>
+    <button id="stop2">STOP</button>
+    <button id="accept2">ACCEPT</button>
+    <button id="reject2">REJECT</button>
+    <button id="mute2">MUTE</button>
+    <button id="hold2">HOLD</button>
+  </section>
 
-<!-- SDK bundle (UMD) -->
-<script src="dist/exotelsdk.js"></script>
-<!-- demo logic (ES-module) -->
-<script type="module" src="demo.js"></script>
+  <!-- tiny live-reload helper – optional -->
+  <script>console.log("Live reload enabled.");</script>
+
+  <!-- credentials (plain JS, no module) -->
+  <script src="phone.js"></script>
+  <script src="phone2.js"></script>
+
+  <!-- per-account bootstrap (ES-modules) -->
+  <script type="module" src="demo.js"></script>
+  <script type="module" src="demo2.js"></script>
+  <script src="dist/exotelsdk.js"></script>
+
 </body>
 </html>

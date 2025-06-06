@@ -2,37 +2,34 @@
 const { ExotelWebClient } = window.exotelSDK;
 
 const ui = {
-  user     : document.getElementById("u1"),
-  status   : document.getElementById("s1"),
-  callInfo : document.getElementById("c1"),
-  stop     : document.getElementById("stop1"),
-  accept   : document.getElementById("accept1"),
-  reject   : document.getElementById("reject1"),
-  mute     : document.getElementById("mute1"),
-  hold     : document.getElementById("hold1")
+  user     : document.getElementById("u2"),
+  status   : document.getElementById("s2"),
+  callInfo : document.getElementById("c2"),
+  stop     : document.getElementById("stop2"),
+  accept   : document.getElementById("accept2"),
+  reject   : document.getElementById("reject2"),
+  mute     : document.getElementById("mute2"),
+  hold     : document.getElementById("hold2")
 };
 
-/* build SIP-account object that ExotelWebClient expects */
-const cred = window.phone[0];
+const cred = window.phone2[0];
 const sip  = {
-  userName   : cred.Username,
-  authUser   : cred.Username,
-  domain     : `${cred.HostServer}:${cred.Port}`,
-  sipdomain  : cred.Domain,
-  displayname: cred.DisplayName ?? cred.Username,
-  secret     : cred.Password,
-  port       : cred.Port,
-  security   : cred.Security,
-  endpoint   : cred.EndPoint
+    userName   : cred.Username,
+    authUser   : cred.Username,
+    domain     : `${cred.HostServer}:${cred.Port}`,
+    sipdomain  : cred.Domain,
+    displayname: cred.DisplayName ?? cred.Username,
+    secret     : cred.Password,
+    port       : cred.Port,
+    security   : cred.Security,
+    endpoint   : cred.EndPoint
 };
 
-/* ---------- Client instance & callbacks ---------- */
 const client     = new ExotelWebClient();
 let   activeCall = null;
 ui.user.textContent = cred.Username;
 
-/* low-level callbacks → update UI */
-function onRegEvent(ev /* "connected" | "failed_to_start" | … */, phone) {
+function onRegEvent(ev) {
   if (ev === "connected") {
     ui.status.textContent = "registered";
     ui.status.style.color = "green";
@@ -42,8 +39,7 @@ function onRegEvent(ev /* "connected" | "failed_to_start" | … */, phone) {
   }
   updateButtonState();
 }
-
-function onCallEvent(ev, phone) {
+function onCallEvent(ev) {
   if (ev === "i_new_call") {
     activeCall = client.getCall();
     ui.callInfo.textContent = "incoming …";
@@ -56,13 +52,9 @@ function onCallEvent(ev, phone) {
   updateButtonState();
 }
 
-function onSessionEvent(/* state */) { /* not used in this sample */ }
-
-/* initialise & register */
-client.initWebrtc(sip, onRegEvent, onCallEvent, onSessionEvent);
+client.initWebrtc(sip, onRegEvent, onCallEvent, () => {});
 setTimeout(() => cred.AutoRegistration && client.DoRegister(), 100);
 
-/* ---------- buttons ---------- */
 ui.stop  .onclick = () => client.unregister();
 ui.accept.onclick = () => client.getCallController().answerCall(activeCall);
 ui.reject.onclick = () => client.getCallController().rejectCall(activeCall);
