@@ -1,80 +1,78 @@
 /* eslint-env browser */
-const { ExotelWebClient } = window.exotelSDK;
-
-const ui = {
+const ui2 = {
   user     : document.getElementById("u2"),
   status   : document.getElementById("s2"),
   callInfo : document.getElementById("c2"),
-  stop     : document.getElementById("stop2"),
+  reg      : document.getElementById("reg2"),
   accept   : document.getElementById("accept2"),
   reject   : document.getElementById("reject2"),
   mute     : document.getElementById("mute2"),
   hold     : document.getElementById("hold2")
 };
 
-const cred = window.phone2[0];
-const sip  = {
-    userName   : cred.Username,
-    authUser   : cred.Username,
-    domain     : `${cred.HostServer}:${cred.Port}`,
-    sipdomain  : cred.Domain,
-    displayname: cred.DisplayName ?? cred.Username,
-    secret     : cred.Password,
-    port       : cred.Port,
-    security   : cred.Security,
-    endpoint   : cred.EndPoint
+const cred2 = window.phone2[0];
+ui2.user.textContent = cred2.Username;
+
+const sip2 = {
+  userName   : cred2.Username,
+  authUser   : cred2.Username,
+  domain     : `${cred2.HostServer}:${cred2.Port}`,
+  sipdomain  : cred2.Domain,
+  displayname: cred2.DisplayName ?? cred2.Username,
+  secret     : cred2.Password,
+  port       : cred2.Port,
+  security   : cred2.Security,
+  endpoint   : cred2.EndPoint
 };
 
-const client     = new ExotelWebClient();
-let   activeCall = null;
-ui.user.textContent = cred.Username;
+const client2       = new ExotelWebClient();
+let   activeCall2   = null;
+let   registered2   = false;
 
-function onRegEvent(ev) {
-  if (ev === "connected") {
-    ui.status.textContent = "registered";
-    ui.status.style.color = "green";
-  } else {
-    ui.status.textContent = ev;
-    ui.status.style.color = "crimson";
-  }
-  updateButtonState();
+function onRegEvent2(ev) {
+  registered2 = ev === "connected";
+  ui2.status.textContent = registered2 ? "registered2" : ev;
+  ui2.status.className   = `status ${registered2 ? "ok" : "err"}`;
+  ui2.reg.textContent    = registered2 ? "STOP" : "REGISTER";
 }
-function onCallEvent(ev) {
+
+function onCallEvent2(ev) {
   if (ev === "i_new_call") {
-    activeCall = client.getCall();
-    ui.callInfo.textContent = "incoming …";
+    activeCall2          = client2.getCall();
+    ui2.callInfo.textContent = "incoming …";
   } else if (ev === "connected") {
-    ui.callInfo.textContent = "in-progress";
+    ui2.callInfo.textContent = "in-progress";
   } else if (ev === "terminated") {
-    ui.callInfo.textContent = "—";
-    activeCall = null;
+    ui2.callInfo.textContent = "—";
+    activeCall2 = null;
   }
-  updateButtonState();
 }
 
-client.initWebrtc(sip, onRegEvent, onCallEvent, () => {});
-setTimeout(() => cred.AutoRegistration && client.DoRegister(), 100);
+function onSessEvent2() {}
 
-ui.stop  .onclick = () => client.unregister();
-ui.accept.onclick = () => client.getCallController().answerCall(activeCall);
-ui.reject.onclick = () => client.getCallController().rejectCall(activeCall);
-ui.mute  .onclick = () => {
-  client.webRTCMuteUnmute();
-  ui.mute.textContent = client.getMuteStatus() ? "UNMUTE" : "MUTE";
-};
-ui.hold  .onclick = () => {
-  const h = ui.hold.dataset.hold === "1";
-  client.holdAction(!h);
-  ui.hold.dataset.hold = h ? "0" : "1";
-  ui.hold.textContent  = h ? "HOLD" : "RESUME";
-};
+client2.initWebrtc(sip2, onRegEvent2, onCallEvent2, onSessEvent2);
 
-function updateButtonState() {
-  const reg = ui.status.textContent === "registered";
-  ui.stop.disabled   = !reg;
-  ui.accept.disabled = !(reg && activeCall && ui.callInfo.textContent === "incoming …");
-  ui.reject.disabled = ui.accept.disabled;
-  ui.mute.disabled   = !activeCall;
-  ui.hold.disabled   = !activeCall;
-}
-updateButtonState();
+/* buttons */
+ui2.reg.onclick = () => {
+  if (registered2) {
+    client2.unregister();
+  } else {
+    client2.DoRegister();
+  }
+};
+ui2.accept.onclick = () => {
+  if (activeCall2) { client2.getCallController().answerCall(activeCall2); }
+};
+ui2.reject.onclick = () => {
+  if (activeCall2) { client2.getCallController().rejectCall(activeCall2); }
+};
+ui2.mute.onclick = () => {
+  client2.webRTCMuteUnmute();
+  ui2.mute.textContent = client2.getMuteStatus() ? "UNMUTE" : "MUTE";
+};
+ui2.hold.onclick = () => {
+  const h = ui2.hold.dataset.hold === "1";
+  client2.holdAction(!h);
+  ui2.hold.dataset.hold = h ? "0" : "1";
+  ui2.hold.textContent  = h ? "HOLD" : "RESUME";
+};

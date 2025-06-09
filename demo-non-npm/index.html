@@ -1,58 +1,55 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>Multi-account WebRTC sample</title>
-
+  <meta charset="utf-8">
+  <title>Two-line Exotel test-bench</title>
   <style>
-    body       { font: 16px/1.4 -apple-system, BlinkMacSystemFont, sans-serif; }
-    .panel     { border:1px solid #ccc; border-radius:4px; padding:24px; margin:32px 0;}
-    .panel h2  { margin-top:0; font-size:28px; }
-    button     { margin:4px 6px 0 0; padding:4px 16px; }
-    button:disabled { opacity:.35 }
+    body        { font-family: system-ui, sans-serif; }
+    .line       { border:1px solid #ccc; padding:1rem; margin:1rem 0 }
+    .status     { font-weight:bold }
+    .ok         { color:green  }
+    .err        { color:crimson }
+    .call-info  { margin-left:.5rem; font-style:italic }
+    button      { margin:.25rem }
   </style>
 </head>
-
 <body>
-  <h1>Multi-account WebRTC sample</h1>
 
-  <!-- account-1 -->
-  <section id="a1" class="panel">
-    <h2      id="u1">loading …</h2>
-    <p>Status: <strong id="s1">—</strong></p>
-    <p>Call&nbsp;&nbsp;: <span   id="c1">—</span></p>
+<h2>Account #1</h2>
+<div class="line">
+  <span id="u1"></span> •
+  <span id="s1" class="status err">not registered</span>
+  <span id="c1" class="call-info">—</span><br>
 
-    <button id="stop1">STOP</button>
-    <button id="accept1">ACCEPT</button>
-    <button id="reject1">REJECT</button>
-    <button id="mute1">MUTE</button>
-    <button id="hold1">HOLD</button>
-  </section>
+  <button id="reg1">REGISTER</button>
+  <button id="accept1">ACCEPT</button>
+  <button id="reject1">REJECT</button>
+  <button id="mute1">MUTE</button>
+  <button id="hold1" data-hold="0">HOLD</button>
+</div>
 
-  <!-- account-2 -->
-  <section id="a2" class="panel">
-    <h2      id="u2">loading …</h2>
-    <p>Status: <strong id="s2">—</strong></p>
-    <p>Call&nbsp;&nbsp;: <span   id="c2">—</span></p>
+<h2>Account #2</h2>
+<div class="line">
+  <span id="u2"></span> •
+  <span id="s2" class="status err">not registered</span>
+  <span id="c2" class="call-info">—</span><br>
 
-    <button id="stop2">STOP</button>
-    <button id="accept2">ACCEPT</button>
-    <button id="reject2">REJECT</button>
-    <button id="mute2">MUTE</button>
-    <button id="hold2">HOLD</button>
-  </section>
+  <button id="reg2">REGISTER</button>
+  <button id="accept2">ACCEPT</button>
+  <button id="reject2">REJECT</button>
+  <button id="mute2">MUTE</button>
+  <button id="hold2" data-hold="0">HOLD</button>
+</div>
 
-  <!-- tiny live-reload helper – optional -->
-  <script>console.log("Live reload enabled.");</script>
+<!-- Exotel SDK -->
+<script src="dist/exotelsdk.js"></script>
 
-  <!-- credentials (plain JS, no module) -->
-  <script src="phone.js"></script>
-  <script src="phone2.js"></script>
+<!-- credentials -->
+<script src="phone.js"></script>
+<script src="phone2.js"></script>
 
-  <!-- per-account bootstrap (ES-modules) -->
-  <script type="module" src="demo.js"></script>
-  <script type="module" src="demo2.js"></script>
-  <script src="dist/exotelsdk.js"></script>
-
+<!-- behaviour -->
+<script src="demo.js"></script>
+<script src="demo2.js"></script>
 </body>
 </html>
