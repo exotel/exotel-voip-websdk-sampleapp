@@ -163,11 +163,14 @@ async function populateDeviceDropdowns() {
     const defaultInputDevice = inputDevices.find(device => device.deviceId === "default");
     const defaultOutputDevice = outputDevices.find(device => device.deviceId === "default");
 
-    const inputDropdown = document.getElementById('inputDevices');
-    inputDropdown.innerHTML = "";
-    const outputDropdown = document.getElementById('outputDevices');
-    outputDropdown.innerHTML = "";
-    inputDevices.forEach(device => {
+        const inputDropdown  = document.getElementById('inputDevices');
+        const outputDropdown = document.getElementById('outputDevices');
+        if (!inputDropdown || !outputDropdown) {   // page section not present
+            return;
+        }
+        inputDropdown.innerHTML  = "";
+        outputDropdown.innerHTML = "";
+        inputDevices.forEach(device => {
         if (device.deviceId == "" || device.deviceId == "default") {
             return;
         }
@@ -201,4 +204,7 @@ window.addEventListener('load', populateDeviceDropdowns);
 // Re-populate devices list when the device list changes
 navigator.mediaDevices.addEventListener('devicechange', populateDeviceDropdowns);
 
-initSDK();
+window.addEventListener('load', () => {
+  initSDK();
+  populateDeviceDropdowns(); // Move inside here to ensure DOM is ready
+});
