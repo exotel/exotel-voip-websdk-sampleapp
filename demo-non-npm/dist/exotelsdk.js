@@ -1,6 +1,6 @@
 /*!
  * 
- * WebRTC CLient SIP version 1.0.21
+ * WebRTC CLient SIP version 1.0.23
  *
  */
 (function webpackUniversalModuleDefinition(root, factory) {
@@ -1518,7 +1518,7 @@ class ExotelWebClient {
     if (!this.call) {
       this.call = new _api_callAPI_Call__WEBPACK_IMPORTED_MODULE_0__.Call();
     }
-    logger.log("Exotel Client Initialised with " + JSON.stringify(sipAccountInfo_));
+    logger.log("ExWebClient: initWebrtc: Exotel Client Initialised with " + JSON.stringify(sipAccountInfo_));
     this.sipAccountInfo = sipAccountInfo_;
     if (!this.sipAccountInfo["userName"] || !this.sipAccountInfo["sipdomain"] || !this.sipAccountInfo["port"]) {
       return false;
@@ -1526,22 +1526,22 @@ class ExotelWebClient {
     this.sipAccountInfo["sipUri"] = "wss://" + this.sipAccountInfo["userName"] + "@" + this.sipAccountInfo["sipdomain"] + ":" + this.sipAccountInfo["port"];
     _listeners_Callback__WEBPACK_IMPORTED_MODULE_7__.callbacks.initializeCallback(CallListenerCallback);
     _listeners_Callback__WEBPACK_IMPORTED_MODULE_7__.registerCallback.initializeRegisterCallback(RegisterEventCallBack);
-    logger.log("Initializing session callback");
+    logger.log("ExWebClient: initWebrtc: Initializing session callback");
     _listeners_Callback__WEBPACK_IMPORTED_MODULE_7__.sessionCallback.initializeSessionCallback(SessionCallback);
     this.setEventListener(this.eventListener);
     return true;
   };
   DoRegister = () => {
-    logger.log("ExWebClient:DoRegister Entry");
+    logger.log("ExWebClient: DoRegister: Entry");
     if (!this.isReadyToRegister) {
-      logger.warn("ExWebClient:DoRegister SDK is not ready to register");
+      logger.warn("ExWebClient: DoRegister: SDK is not ready to register");
       return false;
     }
     (0,_api_registerAPI_RegisterListener__WEBPACK_IMPORTED_MODULE_1__.DoRegister)(this.sipAccountInfo, this);
     return true;
   };
   UnRegister = () => {
-    logger.log("ExWebClient:UnRegister Entry");
+    logger.log("ExWebClient: UnRegister: Entry");
     (0,_api_registerAPI_RegisterListener__WEBPACK_IMPORTED_MODULE_1__.UnRegister)(this.sipAccountInfo, this);
   };
   initDiagnostics = (saveDiagnosticsCallback, keyValueSetCallback) => {
@@ -1602,7 +1602,7 @@ class ExotelWebClient {
    */
 
   registerEventCallback = (event, phone, param) => {
-    logger.log("Dialer: registerEventCallback: Received ---> " + event + 'phone....', phone + 'param....', param);
+    logger.log("ExWebClient: registerEventCallback: Received ---> " + event + 'phone....', phone + 'param....', param);
     if (event === "connected") {
       /**
        * When registration is successful then send the phone number of the same to UI
@@ -1610,7 +1610,7 @@ class ExotelWebClient {
       this.eventListener.onInitializationSuccess(phone);
       this.registrationInProgress = false;
       if (this.unregisterInitiated) {
-        logger.log("ExWebClient:registerEventCallback unregistering due to unregisterInitiated");
+        logger.log("ExWebClient: registerEventCallback: unregistering due to unregisterInitiated");
         this.unregisterInitiated = false;
         this.unregister();
       }
@@ -1625,7 +1625,7 @@ class ExotelWebClient {
         this.isReadyToRegister = true;
       }
       if (this.shouldAutoRetry) {
-        logger.log("ExWebClient:registerEventCallback Autoretrying");
+        logger.log("ExWebClient: registerEventCallback: Autoretrying");
         (0,_api_registerAPI_RegisterListener__WEBPACK_IMPORTED_MODULE_1__.DoRegister)(this.sipAccountInfo, this, 5000);
       }
     } else if (event === "sent_request") {
@@ -1642,7 +1642,7 @@ class ExotelWebClient {
    * @param {*} param 
    */
   callEventCallback = (event, phone, param) => {
-    logger.log("Dialer: callEventCallback: Received ---> " + event + 'param sent....' + param + 'for phone....' + phone);
+    logger.log("ExWebClient: callEventCallback: Received ---> " + event + 'param sent....' + param + 'for phone....' + phone);
     if (event === "i_new_call") {
       this.callListener.onIncomingCall(param, phone);
     } else if (event === "connected") {
@@ -1667,7 +1667,7 @@ class ExotelWebClient {
    * @param {*} sipAccountInfo 
    */
   unregister = sipAccountInfo => {
-    logger.log("ExWebClient:unregister Entry");
+    logger.log("ExWebClient: unregister: Entry");
     this.shouldAutoRetry = false;
     this.unregisterInitiated = true;
     if (!this.registrationInProgress) {
@@ -1677,7 +1677,7 @@ class ExotelWebClient {
     }
   };
   webRTCStatusCallbackHandler = (msg1, arg1) => {
-    logger.log("webRTCStatusCallbackHandler: " + msg1 + " " + arg1);
+    logger.log("ExWebClient: webRTCStatusCallbackHandler: " + msg1 + " " + arg1);
   };
 
   /**
@@ -1703,7 +1703,7 @@ class ExotelWebClient {
       'port': '',
       'contactHost': ''
     };
-    logger.log('Sending register for the number..', subscriberName);
+    logger.log('ExWebClient: initialize: Sending register for the number..', subscriberName);
     fetchPublicIP(sipAccountInfo);
 
     /* Temporary till we figure out the arguments - Start */
@@ -1800,24 +1800,24 @@ class ExotelWebClient {
           }
       }
     }).catch(function (error) {
-      logger.log("something went wrong during checkClientStatus ", error);
+      logger.log("ExWebClient: checkClientStatus: something went wrong during checkClientStatus ", error);
       callback("media_permission_denied");
     });
   };
   changeAudioInputDevice(deviceId, onSuccess, onError) {
-    logger.log(`in changeAudioInputDevice() of ExWebClient.js`);
+    logger.log(`ExWebClient: changeAudioInputDevice: Entry`);
     _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_8__.webrtcSIPPhone.changeAudioInputDevice(deviceId, onSuccess, onError);
   }
   changeAudioOutputDevice(deviceId, onSuccess, onError) {
-    logger.log(`in changeAudioOutputDevice() of ExWebClient.js`);
+    logger.log(`ExWebClient: changeAudioOutputDevice: Entry`);
     _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_8__.webrtcSIPPhone.changeAudioOutputDevice(deviceId, onSuccess, onError);
   }
   downloadLogs() {
-    logger.log(`in downloadLogs() of ExWebClient.js`);
+    logger.log(`ExWebClient: downloadLogs: Entry`);
     _api_LogManager_js__WEBPACK_IMPORTED_MODULE_10__["default"].downloadLogs();
   }
   setPreferredCodec(codecName) {
-    logger.log("ExWebClient:setPreferredCodec entry");
+    logger.log("ExWebClient: setPreferredCodec: Entry");
     _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_8__.webrtcSIPPhone.setPreferredCodec(codecName);
   }
   registerLoggerCallback(callback) {
@@ -8055,13 +8055,13 @@ function getLogger() {
     uaLogger = userAgent.getLogger("sip.WebrtcLib");
     //let loggerFactory = userAgent.getLoggerFactory()
   } catch (e) {
-    logger.log("No userAgent.getLogger: Using console log");
+    logger.log("sipjsphone: getLogger: No userAgent.getLogger, Using console log");
     return console;
   }
   if (uaLogger) {
     return uaLogger;
   } else {
-    logger.log("No Logger: Using console log");
+    logger.log("sipjsphone: getLogger: No Logger, Using console log");
     return logger;
   }
 }
@@ -8093,9 +8093,9 @@ function postInit(onInitDoneCallback) {
         ctxSip.ringToneIntervalID = setInterval(function () {
           ctxSip.ringtone.play().then(() => {
             // Audio is playing.
-            logger.log("startRingTone: Audio is playing: count=" + count + " ctxSip.ringToneIntervalID=" + ctxSip.ringToneIntervalID + " ctxSip.ringtoneCount=" + ctxSip.ringtoneCount);
+            logger.log("sipjsphone: startRingTone: Audio is playing: count=" + count + " ctxSip.ringToneIntervalID=" + ctxSip.ringToneIntervalID + " ctxSip.ringtoneCount=" + ctxSip.ringtoneCount);
           }).catch(e => {
-            logger.log("startRingTone: Exception:", e);
+            logger.log("sipjsphone: startRingTone: Exception:", e);
           });
           count++;
           if (count > ctxSip.ringtoneCount) {
@@ -8103,7 +8103,7 @@ function postInit(onInitDoneCallback) {
           }
         }, 500);
       } catch (e) {
-        logger.log("startRingTone: Exception:", e);
+        logger.log("sipjsphone: startRingTone: Exception:", e);
       }
     },
     stopRingTone: function () {
@@ -8112,10 +8112,10 @@ function postInit(onInitDoneCallback) {
           ctxSip.ringtone = ringtone;
         }
         ctxSip.ringtone.pause();
-        logger.log("stopRingTone: intervalID:", ctxSip.ringToneIntervalID);
+        logger.log("sipjsphone: stopRingTone: intervalID:", ctxSip.ringToneIntervalID);
         clearInterval(ctxSip.ringToneIntervalID);
       } catch (e) {
-        logger.log("stopRingTone: Exception:", e);
+        logger.log("sipjsphone: stopRingTone: Exception:", e);
       }
     },
     startRingbackTone: function () {
@@ -8125,12 +8125,12 @@ function postInit(onInitDoneCallback) {
       try {
         ctxSip.ringbacktone.play().then(() => {
           // Audio is playing.
-          logger.log("startRingbackTone: Audio is playing:");
+          logger.log("sipjsphone: startRingbackTone: Audio is playing:");
         }).catch(e => {
-          logger.log("startRingbackTone: Exception:", e);
+          logger.log("sipjsphone: startRingbackTone: Exception:", e);
         });
       } catch (e) {
-        logger.log("startRingbackTone: Exception:", e);
+        logger.log("sipjsphone: startRingbackTone: Exception:", e);
       }
     },
     stopRingbackTone: function () {
@@ -8140,7 +8140,7 @@ function postInit(onInitDoneCallback) {
       try {
         ctxSip.ringbacktone.pause();
       } catch (e) {
-        logger.log("stopRingbackTone: Exception:", e);
+        logger.log("sipjsphone: stopRingbackTone: Exception:", e);
       }
     },
     // Genereates a rendom string to ID a call
@@ -8176,7 +8176,7 @@ function postInit(onInitDoneCallback) {
           let pc = sdh._peerConnection;
           _webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].initGetStats(pc, callId, username);
         } catch (e) {
-          logger.log("something went wrong while initing getstats");
+          logger.log("sipjsphone: newSession: something went wrong while initing getstats");
           logger.log(e);
         }
         sdh.peerConnectionDelegate = {
@@ -8258,7 +8258,7 @@ function postInit(onInitDoneCallback) {
       try {
         ctxSip.dtmfTone.play();
       } catch (e) {
-        logger.log("sipSendDTMF: Exception:", e);
+        logger.log("sipjsphone: sipSendDTMF: Exception:", e);
       }
       var a = ctxSip.callActiveID;
       if (a) {
@@ -8312,7 +8312,7 @@ function postInit(onInitDoneCallback) {
     phoneHold: function (sessionid, bHold) {
       if (sessionid) {
         var s = ctxSip.Sessions[sessionid];
-        logger.log("phoneHold: bHold", bHold);
+        logger.log("sipjsphone: phoneHold: bHold", bHold);
         toggleHold(s, bHold);
         bHoldEnable = bHold;
       }
@@ -8353,7 +8353,7 @@ function postInit(onInitDoneCallback) {
     alert('Your browser don\'t support WebRTC.\naudio/video calls will be disabled.');
   }
   _webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].setWebRTCFSMMapper("sipjs");
-  logger.log("init: Initialization complete...");
+  logger.log("sipjsphone: init: Initialization complete...");
   initializeComplete = true;
   onInitDoneCallback();
 }
@@ -8467,7 +8467,7 @@ function sipRegister() {
       },
       stunServers: ["stun:stun.l.google.com:19302"],
       registerOptions: {
-        expires: 60
+        expires: 300
       }
     };
     if (!txtRealm || !txtPrivateIdentity || !txtPublicIdentity) {
@@ -8530,7 +8530,7 @@ function registerPhoneEventListeners() {
   ctxSip.phone.delegate = {};
   ctxSip.phone.transport.stateChange.addListener(transportStateChangeListener);
   registerer = new SIP.Registerer(ctxSip.phone, {
-    expires: 60,
+    expires: 300,
     refreshFrequency: 80
   });
   ctxSip.phone.delegate.onInvite = incomingSession => {
@@ -8569,7 +8569,7 @@ function destroySocketConnection() {
       ctxSip.phone.transport.disconnect();
     }
   } catch (e) {
-    logger.log("ERROR", e);
+    logger.log("sipjsphone: destroySocketConnection: ERROR", e);
   }
 }
 function uiCallTerminated(s_description) {
@@ -8579,7 +8579,7 @@ function uiCallTerminated(s_description) {
   if (callBackHandler != null) if (callBackHandler.onResponse) callBackHandler.onResponse("disconnected");
 }
 function sipCall() {
-  logger.log("testing emit accept_reject");
+  logger.log("sipjsphone: sipCall: testing emit accept_reject");
   _webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].sendWebRTCEventsToFSM("accept_reject", "CALL");
 }
 function sipPhoneLogger(level, category, label, content) {
@@ -8590,7 +8590,7 @@ function sipPhoneLogger(level, category, label, content) {
       } else if (content.startsWith("Received WebSocket text message")) {
         handleWebSocketMessageContent(content, "recv");
       }
-      logger.log(level + " sipjslog: " + category + ": " + content);
+      logger.log("sipjsphone: sipPhoneLogger:" + level + " sipjslog: " + category + ": " + content);
     }
   } catch (e) {
     logger.error("sipjsphone:sipPhoneLogger ERROR", e);
@@ -8680,7 +8680,7 @@ function cleanupRegistererTimer() {
       registerer.stateChange.removeListener(registererStateEventListner);
       registerer.waitingChange.removeListener(registererWaitingChangeListener);
     } catch (e) {
-      logger.log("ERROR", e);
+      logger.log("sipjsphone: cleanupRegistererTimer: ERROR", e);
     }
     registerer = null;
   }
@@ -8799,13 +8799,13 @@ function enableReceiverTracks(s, enable) {
       throw new Error("Peer connection closed.");
     }
     peerConnection.getReceivers().forEach(receiver => {
-      logger.log("Receiver ", receiver);
+      logger.log("sipjsphone: enableReceiverTracks: Receiver ", receiver);
       if (receiver.track) {
         receiver.track.enabled = enable;
       }
     });
   } catch (e) {
-    logger.log("enableReceiverTracks: Error in updating receiver tracks  ", e);
+    logger.log("sipjsphone: enableReceiverTracks: Error in updating receiver tracks  ", e);
   }
 }
 
@@ -8823,7 +8823,7 @@ function enableSenderTracks(s, enable) {
       }
     });
   } catch (e) {
-    logger.log("enableSenderTracks: Error in updating sender tracks  ", e);
+    logger.log("sipjsphone: enableSenderTracks: Error in updating sender tracks  ", e);
   }
 }
 function toggleHold(s, hold) {
@@ -8885,20 +8885,20 @@ function onUserSessionAcceptFailed(e) {
     _webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].onCallStatSipJsSessionEvent('userMediaFailed');
     _webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].onGetUserMediaErrorCallstatCallback();
   } else {
-    logger.log("user media failed due to error ", e);
+    logger.log("sipjsphone: onUserSessionAcceptFailed: user media failed due to error ", e);
   }
   uiCallTerminated('Media stream permission denied');
 }
 const SIPJSPhone = {
   init: onInitDoneCallback => {
     var preInit = function () {
-      logger.log("init:readyState, calling postInit");
+      logger.log("sipjsphone: init:readyState, calling postInit");
       postInit(onInitDoneCallback);
     };
     var oReadyStateTimer = setInterval(function () {
       if (document.readyState === "complete") {
         clearInterval(oReadyStateTimer);
-        logger.log("init:readyState, calling preinit");
+        logger.log("sipjsphone: init:readyState, calling preinit");
         preInit();
       }
     }, 100);
@@ -8968,11 +8968,11 @@ const SIPJSPhone = {
     }
   },
   reRegister: () => {
-    logger.log("sipjs: registering in case of relogin");
+    logger.log("sipjsphone: reRegister: registering in case of relogin");
     if (ctxSip.phone && registerer) {
       registerer.register({});
     } else {
-      logger.log("sipjs: SIP Session does not exist for re registration");
+      logger.log("sipjsphone: reRegister: SIP Session does not exist for re registration");
     }
   },
   sipToggleMic: () => {
@@ -9014,7 +9014,7 @@ const SIPJSPhone = {
   },
   pickPhoneCall: () => {
     var newSess = ctxSip.Sessions[ctxSip.callActiveID];
-    logger.log("pickphonecall ", ctxSip.callActiveID);
+    logger.log("sipjsphone: pickphonecall: ", ctxSip.callActiveID);
     if (newSess) {
       if (_audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.currentAudioInputDeviceId != "default") {
         newSess.accept({
@@ -9046,7 +9046,7 @@ const SIPJSPhone = {
     try {
       ctxSip.beeptone.play();
     } catch (e) {
-      logger.log("playBeep: Exception:", e);
+      logger.log("sipjsphone: playBeep: Exception:", e);
     }
   },
   sipUnRegister: () => {
@@ -9078,20 +9078,20 @@ const SIPJSPhone = {
   },
   /* NL Additions - Start */
   getSpeakerTestTone: () => {
-    logger.log("Returning speaker test tone:", ringtone);
+    logger.log("sipjsphone: getSpeakerTestTone: Returning speaker test tone:", ringtone);
     return ringtone;
   },
   getWSSUrl: () => {
-    logger.log("Returning txtWebsocketURL:", txtWebsocketURL);
+    logger.log("sipjsphone: getWSSUrl: Returning txtWebsocketURL:", txtWebsocketURL);
     return txtWebsocketURL;
   },
   /* NL Additions - End */
   getTransportState: () => {
-    logger.log("Returning Transport State : ", lastTransportState);
+    logger.log("sipjsphone: getTransportState: Returning Transport State : ", lastTransportState);
     return lastTransportState;
   },
   getRegistrationState: () => {
-    logger.log("Returning Registration State : ", lastRegistererState);
+    logger.log("sipjsphone: getRegistrationState: Returning Registration State : ", lastRegistererState);
     return lastRegistererState;
   },
   changeAudioInputDevice(deviceId, onSuccess, onError) {
@@ -9099,10 +9099,10 @@ const SIPJSPhone = {
       const trackChanged = SIPJSPhone.replaceSenderTrack(stream, deviceId);
       if (trackChanged) {
         _audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.currentAudioInputDeviceId = deviceId;
-        logger.log(`SIPJSPhone:changeAudioInputDevice Input device changed to: ${deviceId}`);
+        logger.log(`sipjsphone: changeAudioInputDevice: Input device changed to: ${deviceId}`);
         onSuccess();
       } else {
-        logger.error("SIPJSPhone:changeAudioInputDevice failed");
+        logger.error("sipjsphone: changeAudioInputDevice: failed");
         onError("replaceSenderTrack failed for webrtc");
       }
     }, onError);
@@ -9177,7 +9177,7 @@ const SIPJSPhone = {
   audioOutputDeviceChangeCallback: null,
   onDeviceChangeCallback: null,
   registerAudioDeviceChangeCallback(audioInputDeviceChangeCallback, audioOutputDeviceChangeCallback, onDeviceChangeCallback) {
-    logger.log(`SIPJSPhone:registerAudioDeviceChangeCallback  entry`);
+    logger.log(`sipjsphone: registerAudioDeviceChangeCallback: entry`);
     SIPJSPhone.audioInputDeviceChangeCallback = audioInputDeviceChangeCallback;
     SIPJSPhone.audioOutputDeviceChangeCallback = audioOutputDeviceChangeCallback;
     SIPJSPhone.onDeviceChangeCallback = onDeviceChangeCallback;
@@ -9245,7 +9245,7 @@ var phone = null;
 let webrtcSIPEngine = null;
 const logger = _coreSDKLogger__WEBPACK_IMPORTED_MODULE_0__["default"];
 function sendWebRTCEventsToFSM(eventType, sipMethod) {
-  logger.log("webrtcSIPPhone: sendWebRTCEventsToFSM  s: ", eventType, sipMethod);
+  logger.log("webrtcSIPPhone: sendWebRTCEventsToFSM : ", eventType, sipMethod);
   _webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"].sendWebRTCEventsToFSM(eventType, sipMethod);
 }
 let sipAccountInfoData = {};
@@ -9260,11 +9260,11 @@ const webrtcSIPPhone = {
     }
   },
   sendDTMFWebRTC: dtmfValue => {
-    logger.log("webrtcSIPPhone: sendDTMFWebRTC  : ", dtmfValue);
+    logger.log("webrtcSIPPhone: sendDTMFWebRTC : ", dtmfValue);
     phone.sipSendDTMF(dtmfValue);
   },
   registerWebRTCClient: (sipAccountInfo, handler) => {
-    logger.log("webrtcSIPPhone: registerWebRTCClient  s: ", sipAccountInfo, handler);
+    logger.log("webrtcSIPPhone: registerWebRTCClient : ", sipAccountInfo, handler);
     sipAccountInfoData = sipAccountInfo;
     phone.init(() => {
       phone.loadCredentials(sipAccountInfo);
@@ -9276,11 +9276,11 @@ const webrtcSIPPhone = {
     });
   },
   configureWebRTCClientDevice: handler => {
-    logger.log("webrtcSIPPhone: configureWebRTCClientDevice  : ", handler);
+    logger.log("webrtcSIPPhone: configureWebRTCClientDevice : ", handler);
     phone.registerCallBacks(handler);
   },
   setAuthenticatorServerURL(serverURL) {
-    logger.log("webrtcSIPPhone: setAuthenticatorServerURL  : ", serverURL);
+    logger.log("webrtcSIPPhone: setAuthenticatorServerURL : ", serverURL);
     // Nothing to do here
   },
   toggleSipRegister: () => {
@@ -9413,15 +9413,15 @@ const webrtcSIPPhone = {
     }
   },
   changeAudioInputDevice(deviceId, onSuccess, onError) {
-    logger.log("webrtcSIPPhone: changeAudioInputDevice  s: ", deviceId, onSuccess, onError);
+    logger.log("webrtcSIPPhone: changeAudioInputDevice : ", deviceId, onSuccess, onError);
     _sipjsphone__WEBPACK_IMPORTED_MODULE_1__["default"].changeAudioInputDevice(deviceId, onSuccess, onError);
   },
   changeAudioOutputDevice(deviceId, onSuccess, onError) {
-    logger.log("webrtcSIPPhone: changeAudioOutputDevice  s: ", deviceId, onSuccess, onError);
+    logger.log("webrtcSIPPhone: changeAudioOutputDevice : ", deviceId, onSuccess, onError);
     _sipjsphone__WEBPACK_IMPORTED_MODULE_1__["default"].changeAudioOutputDevice(deviceId, onSuccess, onError);
   },
   setPreferredCodec(codecName) {
-    logger.log("webrtcSIPPhone: setPreferredCodec  : ", codecName);
+    logger.log("webrtcSIPPhone: setPreferredCodec : ", codecName);
     _sipjsphone__WEBPACK_IMPORTED_MODULE_1__["default"].setPreferredCodec(codecName);
   },
   registerAudioDeviceChangeCallback(audioInputDeviceChangeCallback, audioOutputDeviceChangeCallback, onDeviceChangeCallback) {
