@@ -1,5 +1,8 @@
 Changelog
 
+## v3.0.0 07 July, 2025
+-[VST-991] Enabled Mutli-Webrtc accounts in the same tab
+
 ## v1.0.22 04 April, 2025
 -[VST-973] get and download logs , log refactoring and mute functionality enhancement
 

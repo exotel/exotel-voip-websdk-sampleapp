@@ -24,6 +24,16 @@
     <button id="holdButton" onclick="toggleHoldButton()">HOLD</button>
     <button onclick="sendDTMF(1)">DTMF 1</button>
     <button onclick="sendDTMF(2)">DTMF 2</button><br><br>
+    <!-- Dropdown for Input Devices -->
+    <b><label for="inputDevices">Select Input Device:</label></b>
+    <select id="inputDevices"></select>
+    <button id="changeInputButton" onclick="changeAudioInputDevice()">Change Input Device</button>
+    <br><br>
+    <!-- Dropdown for Output Devices -->
+    <b><label for="outputDevices">Select Output Device:</label></b>
+    <select id="outputDevices"></select>
+    <button id="changeOutputButton" onclick="changeAudioOutputDevice()">Change Output Device</button>
+    <br><br>
     <button onclick="downloadLogs()">Download Logs</button><br><br>
 
     <hr>
@@ -39,6 +49,16 @@
     <button id="holdButton2" onclick="toggleHoldButton2()">HOLD</button>
     <button onclick="sendDTMF2(1)">DTMF 1</button>
     <button onclick="sendDTMF2(2)">DTMF 2</button><br><br>
+    <!-- Dropdown for Input Devices -->
+    <b><label for="inputDevices2">Select Input Device:</label></b>
+    <select id="inputDevices2"></select>
+    <button id="changeInputButton2" onclick="changeAudioInputDevice2()">Change Input Device</button>
+    <br><br>
+    <!-- Dropdown for Output Devices -->
+    <b><label for="outputDevices2">Select Output Device:</label></b>
+    <select id="outputDevices2"></select>
+    <button id="changeOutputButton2" onclick="changeAudioOutputDevice2()">Change Output Device</button>
+    <br><br>
     <button onclick="downloadLogs2()">Download Logs</button><br><br>
 </body>
 </html>

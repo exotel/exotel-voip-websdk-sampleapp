@@ -20,12 +20,6 @@ exWebClient.registerLoggerCallback(function (type, message, args) {
     }
 });
 
-exWebClient.registerAudioDeviceChangeCallback(function (deviceId) {
-    console.log(`demo:audioInputDeviceCallback device changed to ${deviceId}`);
-}, function (deviceId) {
-    console.log(`demo:audioOutputDeviceCallback device changed to ${deviceId}`);
-});
-
 var call = null;
 
 
@@ -45,7 +39,6 @@ function initSDK() {
         'endpoint': sipInfo.EndPoint
     };
     exWebClient.initWebrtc(sipAccountInfo, RegisterEventCallBack, CallListenerCallback, SessionCallback)
-    exWebClient.setPreferredCodec("opus")
 }
 
 function UserAgentRegistration() {
@@ -84,6 +77,12 @@ function CurrentOutputDeviceCallback(currentOutputDevice) {
 
 function RegisterEventCallBack(state, sipInfo) {
     document.getElementById("status").innerHTML = state;
+    exWebClient.setPreferredCodec("opus")
+    exWebClient.registerAudioDeviceChangeCallback(function (deviceId) {
+        console.log(`demo:audioInputDeviceCallback device changed to ${deviceId}`);
+    }, function (deviceId) {
+        console.log(`demo:audioOutputDeviceCallback device changed to ${deviceId}`);
+    });
 }
 
 function SessionCallback(state, sipInfo) {
@@ -201,10 +200,105 @@ async function populateDeviceDropdowns() {
 // Populate dropdowns when the page loads
 window.addEventListener('load', populateDeviceDropdowns);
 
-// Re-populate devices list when the device list changes
 navigator.mediaDevices.addEventListener('devicechange', populateDeviceDropdowns);
 
 window.addEventListener('load', () => {
   initSDK();
-  populateDeviceDropdowns(); // Move inside here to ensure DOM is ready
+  populateDeviceDropdowns(); 
 });
+
+// Diagnostics callbacks
+function diagnosticsReportCallback(saveStatus, saveData) {
+    logDiagnostics("Report: " + saveStatus + "\n" + saveData);
+}
+function diagnosticsKeyValueCallback(key, status, description) {
+    logDiagnostics("Key: " + key + ", Status: " + status + ", Desc: " + description);
+}
+function logDiagnostics(msg) {
+    var ta = document.getElementById('diagnosticsLog');
+    if (ta) ta.value += msg + "\n";
+}
+// Diagnostics API wrappers
+function initDiagnostics() {
+    exWebClient.initDiagnostics(diagnosticsReportCallback, diagnosticsKeyValueCallback);
+    logDiagnostics("Diagnostics initialized");
+}
+function closeDiagnostics() {
+    exWebClient.closeDiagnostics();
+    logDiagnostics("Diagnostics closed");
+}
+function startSpeakerDiagnosticsTest() {
+    exWebClient.startSpeakerDiagnosticsTest();
+    logDiagnostics("Speaker test started");
+}
+function stopSpeakerDiagnosticsTest(result) {
+    if (typeof result === 'undefined') {
+        exWebClient.stopSpeakerDiagnosticsTest();
+        logDiagnostics("Speaker test stopped (no result)");
+    } else {
+        exWebClient.stopSpeakerDiagnosticsTest(result);
+        logDiagnostics("Speaker test stopped with result: " + result);
+    }
+}
+function startMicDiagnosticsTest() {
+    exWebClient.startMicDiagnosticsTest();
+    logDiagnostics("Mic test started");
+}
+function stopMicDiagnosticsTest(result) {
+    if (typeof result === 'undefined') {
+        exWebClient.stopMicDiagnosticsTest();
+        logDiagnostics("Mic test stopped (no result)");
+    } else {
+        exWebClient.stopMicDiagnosticsTest(result);
+        logDiagnostics("Mic test stopped with result: " + result);
+    }
+}
+function startNetworkDiagnostics() {
+    exWebClient.startNetworkDiagnostics();
+    logDiagnostics("Network diagnostics started");
+}
+function stopNetworkDiagnostics() {
+    exWebClient.stopNetworkDiagnostics();
+    logDiagnostics("Network diagnostics stopped");
+}
+
+function testBadInputDeviceId() {
+    exWebClient.changeAudioInputDevice('bad-device-id',
+        () => logDiagnostics('Input device changed (unexpected)'),
+        (err) => logDiagnostics('Input device error: ' + err)
+    );
+}
+function testBadOutputDeviceId() {
+    exWebClient.changeAudioOutputDevice('bad-device-id',
+        () => logDiagnostics('Output device changed (unexpected)'),
+        (err) => logDiagnostics('Output device error: ' + err)
+    );
+}
+function testMultipleDeviceCallbacks() {
+    exWebClient.registerAudioDeviceChangeCallback(
+        function(deviceId) { logDiagnostics('First input callback: ' + deviceId); },
+        function(deviceId) { logDiagnostics('First output callback: ' + deviceId); }
+    );
+    exWebClient.registerAudioDeviceChangeCallback(
+        function(deviceId) { logDiagnostics('Second input callback: ' + deviceId); },
+        function(deviceId) { logDiagnostics('Second output callback: ' + deviceId); }
+    );
+    logDiagnostics('Registered two audio device change callbacks. Now plug/unplug a device to test.');
+}
+
+function muteCall() {
+    if (call) {
+        call.Mute();
+        logDiagnostics('Mute called');
+    } else {
+        logDiagnostics('No active call to mute');
+    }
+}
+function unmuteCall() {
+    if (call) {
+        call.UnMute();
+        logDiagnostics('UnMute called');
+    } else {
+        logDiagnostics('No active call to unmute');
+    }
+}
