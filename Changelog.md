@@ -1,7 +1,7 @@
 Changelog
 
 ## v2.0.2 21 July, 2025
--[VST-1038] make auto audio device change handling configurable and fixing Missing sent_request event in registerCallback
+-[VST-1038] make auto audio device change handling configurable, added changeAudioInput/OutputDevice fourceful functionality and fixing Missing sent_request event in registerCallback
 
 ## v2.0.1 19 June, 2025
 -[VST-1031] Maintaining v1.0.23
