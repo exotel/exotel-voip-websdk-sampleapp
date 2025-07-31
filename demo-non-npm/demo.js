@@ -1,4 +1,5 @@
 const exWebClient = new exotelSDK.ExotelWebClient();
+exWebClient.setEnableConsoleLogging(true);
 exWebClient.registerLoggerCallback(function (type, message, args) {
 
     switch (type) {
@@ -27,7 +28,6 @@ exWebClient.registerAudioDeviceChangeCallback(function (deviceId) {
 });
 
 var call = null;
-
 
 function initSDK() {
     isInitialized = true;
