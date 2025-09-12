@@ -183,5 +183,34 @@ async function populateDeviceDropdowns2() {
 window.addEventListener('load', () => {
     initSDK2();
     populateDeviceDropdowns2();
+    initVolumeSliders2();
 });
 navigator.mediaDevices.addEventListener('devicechange', populateDeviceDropdowns2);
+
+// ----- Account 2 volume helpers -----
+function _percentToUnit2(v) {
+  const n = Number(v);
+  if (Number.isNaN(n)) return 1.0;
+  return Math.max(0, Math.min(1, n / 100));
+}
+
+// Account 2 call volume
+function onCallVolumeChange2(percent) {
+  const value = _percentToUnit2(percent);
+  try { exWebClient2.setAudioOutputVolume("audioRemote", value); } catch (_) {}
+}
+
+// Account 2 sound volumes (for global controls)
+function onGlobalSoundVolumeChange2(type, percent) {
+  const value = _percentToUnit2(percent);
+  try { exWebClient2.setAudioOutputVolume(type, value); } catch (_) {}
+}
+
+// Initialize Account 2 volume sliders
+function initVolumeSliders2() {
+  try {
+    const c2 = Math.round((exWebClient2.getAudioOutputVolume('audioRemote') ?? 1) * 100);
+    const s = id => document.getElementById(id);
+    if (s('slider-call-acc2')) s('slider-call-acc2').value = c2;
+  } catch (_) {}
+}

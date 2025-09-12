@@ -84,6 +84,23 @@ function RegisterEventCallBack(state, sipInfo) {
     }, function (deviceId) {
         console.log(`demo:audioOutputDeviceCallback device changed to ${deviceId}`);
     });
+
+
+  // --- NEW: once registered, apply UI volumes to SDK ---
+  if (String(state).toLowerCase() === "registered") {
+    const pct = id => {
+      const el = document.getElementById(id);
+      return el ? Math.max(0, Math.min(1, Number(el.value) / 100)) : 1;
+    };
+
+    // Global notif volumes -> all accounts
+    ["ringtone", "ringback", "beep", "dtmf"].forEach(t => {
+      try { exWebClient.setSoundVolume(t, pct(`slider-${t}`)); } catch {}
+    });
+
+    // Per-account call volume
+    try { exWebClient.setAudioOutputVolume("audioRemote", pct("slider-call-acc1")); } catch {}
+  }
 }
 
 function SessionCallback(state, sipInfo) {
@@ -303,3 +320,56 @@ function unmuteCall() {
         logDiagnostics('No active call to unmute');
     }
 }
+
+
+// ----- volume helpers -----
+function _percentToUnit(v) {
+    const n = Number(v);
+    if (Number.isNaN(n)) return 1.0;
+    return Math.max(0, Math.min(1, n / 100));
+  }
+  
+  // Global notifications: apply to ALL accounts present on the page
+  function onGlobalSoundVolumeChange(type, percent) {
+    const value = _percentToUnit(percent);
+    // Apply to Account 1
+    try { exWebClient.setAudioOutputVolume(type, value); } catch (_) {}
+    // Apply to Account 2 if it exists
+    try { if (window.exWebClient2 && window.onGlobalSoundVolumeChange2) window.onGlobalSoundVolumeChange2(type, percent); } catch (_) {}
+  }
+  
+  // Per-account call volumes
+  function onCallVolumeChange1(percent) {
+    const value = _percentToUnit(percent);
+    try { exWebClient.setAudioOutputVolume("audioRemote", value); } catch (_) {}
+  }
+    
+  // Initialize slider positions from SDK (optional but nice)
+  function initVolumeSliders() {
+    // Initialize Account 1 sliders
+    try {
+      const r = Math.round((exWebClient.getAudioOutputVolume('ringtone') ?? 1) * 100);
+      const rb = Math.round((exWebClient.getAudioOutputVolume('ringback') ?? 1) * 100);
+      const b = Math.round((exWebClient.getAudioOutputVolume('beep') ?? 1) * 100);
+      const d = Math.round((exWebClient.getAudioOutputVolume('dtmf') ?? 1) * 100);
+      const c1 = Math.round((exWebClient.getAudioOutputVolume('audioRemote') ?? 1) * 100);
+  
+      const s = id => document.getElementById(id);
+      if (s('slider-ringtone')) s('slider-ringtone').value = r;
+      if (s('slider-ringback')) s('slider-ringback').value = rb;
+      if (s('slider-beep'))     s('slider-beep').value = b;
+      if (s('slider-dtmf'))     s('slider-dtmf').value = d;
+      if (s('slider-call-acc1')) s('slider-call-acc1').value = c1;
+    } catch (_) {}
+  
+    // If a second account exists, set its call slider too
+    try {
+      if (window.exWebClient2) {
+        const s = id => document.getElementById(id);
+        if (s('slider-call-acc2')) s('slider-call-acc2').value = c2;
+      }
+    } catch (_) {}
+    
+    // Initialize Account 2 sliders if available
+    try { if (window.initVolumeSliders2) window.initVolumeSliders2(); } catch (_) {}
+  }
