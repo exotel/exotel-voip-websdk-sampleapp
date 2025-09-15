@@ -1,6 +1,6 @@
 /*!
  * 
- * WebRTC CLient SIP version 3.0.2
+ * WebRTC CLient SIP version 3.0.3
  *
  */
 (function webpackUniversalModuleDefinition(root, factory) {
@@ -171,15 +171,17 @@ const audioDeviceManager = {
     }
     if (callback) callback();
   },
+  configureAudioGainNode(sourceNode) {
+    let gainNode = this.webAudioCtx.createGain();
+    sourceNode.connect(gainNode).connect(this.webAudioCtx.destination);
+    return gainNode;
+  },
   createAndConfigureAudioGainNode(audioElement) {
     logger.log("audioDeviceManager:createAndConfigureAudioGainNode entry for audioElement", audioElement);
-
     // get audio track from audio element
-    let track = this.webAudioCtx.createMediaElementSource(audioElement);
-
+    let sourceNode = this.webAudioCtx.createMediaElementSource(audioElement);
     // Create a GainNode
-    let gainNode = this.webAudioCtx.createGain();
-    track.connect(gainNode).connect(this.webAudioCtx.destination);
+    let gainNode = this.configureAudioGainNode(sourceNode);
 
     // resume audio context when audio element is played
     audioElement.addEventListener("play", () => {
@@ -187,6 +189,7 @@ const audioDeviceManager = {
         this.webAudioCtx.resume();
       }
     });
+    return gainNode;
   }
 };
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (audioDeviceManager);
@@ -3318,7 +3321,7 @@ break;case _messages__WEBPACK_IMPORTED_MODULE_7__.C.BYE:// If the BYE does not m
 // without tags by a UAC will be rejected.
 // https://tools.ietf.org/html/rfc3261#section-15.1.2
 this.replyStateless(message,{statusCode:481});break;case _messages__WEBPACK_IMPORTED_MODULE_7__.C.CANCEL:throw new Error(`Unexpected out of dialog request method ${message.method}.`);// removed by dead control flow
-case _messages__WEBPACK_IMPORTED_MODULE_7__.C.INFO:// Use of the INFO method does not constitute a separate dialog usage.
+{}case _messages__WEBPACK_IMPORTED_MODULE_7__.C.INFO:// Use of the INFO method does not constitute a separate dialog usage.
 // INFO messages are always part of, and share the fate of, an invite
 // dialog usage [RFC5057].  INFO messages cannot be sent as part of
 // other dialog usages, or outside an existing dialog.
@@ -6167,30 +6170,12 @@ class SIPJSPhone {
     this.audioRemote = document.createElement("audio");
     this.audioRemote.style.display = 'none';
     document.body.appendChild(this.audioRemote);
-    this.audioRemoteGainNode = null;
-    this.audioRemoteSourceNode = null;
     this.callAudioOutputVolume = 1;
   }
   setCallAudioOutputVolume(value) {
     logger.log(`sipjsphone: setCallAudioOutputVolume: ${value}`);
     this.callAudioOutputVolume = Math.max(0, Math.min(1, value));
-    if (this.audioRemoteGainNode) {
-      // Test with extreme values to see if there's any effect
-      if (value === 0) {
-        this.audioRemoteGainNode.gain.value = 0;
-        logger.log("sipjsphone: setCallAudioOutputVolume: MUTED - gain set to 0");
-      } else if (value === 1) {
-        this.audioRemoteGainNode.gain.value = 1;
-        logger.log("sipjsphone: setCallAudioOutputVolume: MAX VOLUME - gain set to 1");
-      } else {
-        this.audioRemoteGainNode.gain.value = this.callAudioOutputVolume;
-        logger.log(`sipjsphone: setCallAudioOutputVolume: setting gain to ${this.callAudioOutputVolume}`);
-      }
-      logger.log(`sipjsphone: setCallAudioOutputVolume: Current gain node value: ${this.audioRemoteGainNode.gain.value}`);
-      logger.log(`sipjsphone: setCallAudioOutputVolume: Audio context state: ${_audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.webAudioCtx.state}`);
-    } else {
-      logger.log(`sipjsphone: setCallAudioOutputVolume: audioRemoteGainNode is null!`);
-    }
+    this.audioRemote.volume = this.callAudioOutputVolume;
     return true;
   }
   getCallAudioOutputVolume() {
@@ -7014,12 +6999,18 @@ class SIPJSPhone {
       logger.error(`Error in hold request [${s.id}]`);
     });
   }
+  confiureAudioGainNodeForOutputStream() {
+    logger.log("sipjsphone: confiureAudioGainNodeForOutputStream: callActiveID", this.ctxSip.callActiveID);
+    if (this.activeOutputStream && this.ctxSip.callActiveID) {
+      this.audioRemoteSourceNode = _audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.webAudioCtx.createMediaStreamSource(this.activeOutputStream);
+      this.audioRemoteGainNode = _audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.createAndConfigureAudioGainNodeForSourceNode(this.audioRemoteSourceNode);
+      this.audioRemoteGainNode.gain.value = this.callAudioOutputVolume;
+    } else {
+      logger.error("sipjsphone: confiureAudioGainNodeForOutputStream: No active output stream");
+    }
+  }
   assignStream(stream, element) {
     logger.log("sipjsphone: assignStream: entry for stream", stream);
-
-    // Debug: Check if element already has a source
-    logger.log("sipjsphone: assignStream: element.srcObject before:", element.srcObject);
-    logger.log("sipjsphone: assignStream: element.volume before:", element.volume);
     if (_audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.currentAudioOutputDeviceId != "default") element.setSinkId(_audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.currentAudioOutputDeviceId);
 
     // Set element source.
@@ -7027,48 +7018,7 @@ class SIPJSPhone {
     element.srcObject = stream;
 
     // Set HTML audio element volume to 0 to prevent direct audio output
-    element.volume = 0;
-
-    // Debug: Check element properties after setting srcObject
-    logger.log("sipjsphone: assignStream: element.srcObject after:", element.srcObject);
-    logger.log("sipjsphone: assignStream: element.volume after:", element.volume);
-
-    // Clean up existing audio nodes
-    if (this.audioRemoteSourceNode) {
-      try {
-        this.audioRemoteSourceNode.disconnect();
-        this.audioRemoteGainNode.disconnect();
-        logger.log("sipjsphone: assignStream: Disconnected old audio nodes");
-      } catch (e) {
-        logger.error("sipjsphone: assignStream: Old audio nodes cleanup:", e);
-      }
-    }
-
-    // FIX: Create MediaStreamSource directly from the stream, not from the element
-    this.audioRemoteSourceNode = _audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.webAudioCtx.createMediaStreamSource(stream);
-    this.audioRemoteGainNode = _audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.webAudioCtx.createGain();
-
-    // Set the gain value
-    this.audioRemoteGainNode.gain.value = this.callAudioOutputVolume;
-    logger.log(`sipjsphone: assignStream: Set gain node value to ${this.callAudioOutputVolume}`);
-
-    // Connect the audio graph step by step
-    this.audioRemoteSourceNode.connect(this.audioRemoteGainNode);
-    this.audioRemoteGainNode.connect(_audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.webAudioCtx.destination);
-    logger.log("sipjsphone: assignStream: Audio graph connected: sourceNode -> gainNode -> destination");
-
-    // Debug: Verify the connection
-    logger.log("sipjsphone: assignStream: Number of connections from sourceNode:", this.audioRemoteSourceNode.numberOfOutputs);
-    logger.log("sipjsphone: assignStream: Number of connections from gainNode:", this.audioRemoteGainNode.numberOfOutputs);
-
-    // Resume audio context when element plays
-    element.addEventListener("play", () => {
-      if (_audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.webAudioCtx.state === "suspended") {
-        _audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.webAudioCtx.resume().then(() => {
-          logger.log("sipjsphone: assignStream: Audio context resumed");
-        });
-      }
-    });
+    element.volume = this.callAudioOutputVolume;
 
     // Load and start playback of media.
     element.play().catch(error => {
@@ -7331,7 +7281,7 @@ class SIPJSPhone {
     }, err => {
       logger.error("sipjsphone: changeAudioInputDevice error:", err);
       if (onError) onError(err);
-    }, forceDeviceChange, logger);
+    }, forceDeviceChange);
   }
   async changeAudioOutputDevice(deviceId, onSuccess, onError, forceDeviceChange) {
     logger.log("sipjsphone: changeAudioOutputDevice : ", deviceId, onSuccess, onError, "forceDeviceChange = ", forceDeviceChange, "enableAutoAudioDeviceChangeHandling = ", this.enableAutoAudioDeviceChangeHandling);
@@ -7356,7 +7306,7 @@ class SIPJSPhone {
       }, err => {
         logger.error('SIPJSPhone:changeAudioOutputDevice error:', err);
         if (onError) onError(err);
-      }, forceDeviceChange, logger);
+      }, forceDeviceChange);
     } catch (e) {
       logger.error('SIPJSPhone:changeAudioOutputDevice unexpected error:', e);
       if (onError) onError(e);

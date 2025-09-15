@@ -178,7 +178,7 @@ function _percentToUnit2(v) {
 // Account 2 call volume
 function onCallVolumeChange2(percent) {
   const value = _percentToUnit2(percent);
-  try { exWebClient2.setAudioOutputVolume("audioRemote", value); } catch (_) {}
+  try { exWebClient2.setCallAudioOutputVolume( value); } catch (_) {}
 }
 
 // Account 2 sound volumes (for global controls)
