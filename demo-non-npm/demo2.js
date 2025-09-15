@@ -181,12 +181,6 @@ function onCallVolumeChange2(percent) {
   try { exWebClient2.setCallAudioOutputVolume( value); } catch (_) {}
 }
 
-// Account 2 sound volumes (for global controls)
-function onGlobalSoundVolumeChange2(type, percent) {
-  const value = _percentToUnit2(percent);
-  try { exWebClient2.setAudioOutputVolume(type, value); } catch (_) {}
-}
-
 // Initialize Account 2 volume sliders
 function initVolumeSliders2() {
   try {
