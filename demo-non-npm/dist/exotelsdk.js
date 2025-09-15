@@ -172,6 +172,7 @@ const audioDeviceManager = {
     if (callback) callback();
   },
   configureAudioGainNode(sourceNode) {
+    logger.log("audioDeviceManager:configureAudioGainNode entry");
     let gainNode = this.webAudioCtx.createGain();
     sourceNode.connect(gainNode).connect(this.webAudioCtx.destination);
     return gainNode;
@@ -6999,18 +7000,8 @@ class SIPJSPhone {
       logger.error(`Error in hold request [${s.id}]`);
     });
   }
-  confiureAudioGainNodeForOutputStream() {
-    logger.log("sipjsphone: confiureAudioGainNodeForOutputStream: callActiveID", this.ctxSip.callActiveID);
-    if (this.activeOutputStream && this.ctxSip.callActiveID) {
-      this.audioRemoteSourceNode = _audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.webAudioCtx.createMediaStreamSource(this.activeOutputStream);
-      this.audioRemoteGainNode = _audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.createAndConfigureAudioGainNodeForSourceNode(this.audioRemoteSourceNode);
-      this.audioRemoteGainNode.gain.value = this.callAudioOutputVolume;
-    } else {
-      logger.error("sipjsphone: confiureAudioGainNodeForOutputStream: No active output stream");
-    }
-  }
   assignStream(stream, element) {
-    logger.log("sipjsphone: assignStream: entry for stream", stream);
+    logger.log("sipjsphone: assignStream: entry");
     if (_audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.currentAudioOutputDeviceId != "default") element.setSinkId(_audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.currentAudioOutputDeviceId);
 
     // Set element source.
@@ -10083,6 +10074,7 @@ class ExotelWebClient {
     this.webrtcSIPPhone.setPreferredCodec(codecName);
   }
   static registerLoggerCallback(callback) {
+    logger.log("ExWebClient: registerLoggerCallback: Entry");
     ExotelWebClient.clientSDKLoggerCallback = callback;
   }
   registerAudioDeviceChangeCallback(audioInputDeviceChangeCallback, audioOutputDeviceChangeCallback, onDeviceChangeCallback) {
@@ -10094,21 +10086,19 @@ class ExotelWebClient {
     this.webrtcSIPPhone.registerAudioDeviceChangeCallback(audioInputDeviceChangeCallback, audioOutputDeviceChangeCallback, onDeviceChangeCallback);
   }
   static setEnableConsoleLogging(enable) {
-    if (enable) {
-      logger.log(`ExWebClient: setEnableConsoleLogging: entry ${enable}`);
-    }
+    logger.log("ExWebClient: setEnableConsoleLogging: Entry, enable: " + enable);
     logger.setEnableConsoleLogging(enable);
   }
   static setAudioOutputVolume(audioElementName, value) {
-    logger.log(`ExWebClient: setAudioOutputVolume: Entry`);
+    logger.log(`ExWebClient: setAudioOutputVolume: Entry, audioElementName: ${audioElementName}, value: ${value}`);
     _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_8__.WebrtcSIPPhone.setAudioOutputVolume(audioElementName, value);
   }
   static getAudioOutputVolume(audioElementName) {
-    logger.log(`ExWebClient: getAudioOutputVolume: Entry`);
+    logger.log(`ExWebClient: getAudioOutputVolume: Entry, audioElementName: ${audioElementName}`);
     return _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_8__.WebrtcSIPPhone.getAudioOutputVolume(audioElementName);
   }
   setCallAudioOutputVolume(value) {
-    logger.log(`ExWebClient: setCallAudioOutputVolume: Entry`);
+    logger.log(`ExWebClient: setCallAudioOutputVolume: Entry, value: ${value}`);
     this.webrtcSIPPhone.setCallAudioOutputVolume(value);
   }
   getCallAudioOutputVolume() {
