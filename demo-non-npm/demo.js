@@ -74,7 +74,7 @@ function RegisterEventCallBack(state, sipInfo) {
     };
 
     // Global notif volumes -> all accounts
-    ["ringtone", "ringback", "beep", "dtmf"].forEach(t => {
+    ["ringtone", "ringbacktone", "beeptone", "dtmftone"].forEach(t => {
       try { exWebClient.setSoundVolume(t, pct(`slider-${t}`)); } catch {}
     });
 
@@ -325,16 +325,16 @@ function _percentToUnit(v) {
     // Initialize Account 1 sliders
     try {
       const r = Math.round((exotelSDK.ExotelWebClient.getAudioOutputVolume('ringtone') ?? 1) * 100);
-      const rb = Math.round((exotelSDK.ExotelWebClient.getAudioOutputVolume('ringback') ?? 1) * 100);
-      const b = Math.round((exotelSDK.ExotelWebClient.getAudioOutputVolume('beep') ?? 1) * 100);
-      const d = Math.round((exotelSDK.ExotelWebClient.getAudioOutputVolume('dtmf') ?? 1) * 100);
+      const rb = Math.round((exotelSDK.ExotelWebClient.getAudioOutputVolume('ringbacktone') ?? 1) * 100);
+      const b = Math.round((exotelSDK.ExotelWebClient.getAudioOutputVolume('beeptone') ?? 1) * 100);
+      const d = Math.round((exotelSDK.ExotelWebClient.getAudioOutputVolume('dtmftone') ?? 1) * 100);
       const c1 = Math.round((exWebClient.getAudioOutputVolume('audioRemote') ?? 1) * 100);
   
       const s = id => document.getElementById(id);
       if (s('slider-ringtone')) s('slider-ringtone').value = r;
-      if (s('slider-ringback')) s('slider-ringback').value = rb;
-      if (s('slider-beep'))     s('slider-beep').value = b;
-      if (s('slider-dtmf'))     s('slider-dtmf').value = d;
+      if (s('slider-ringbacktone')) s('slider-ringbacktone').value = rb;
+      if (s('slider-beeptone'))     s('slider-beeptone').value = b;
+      if (s('slider-dtmftone'))     s('slider-dtmftone').value = d;
       if (s('slider-call-acc1')) s('slider-call-acc1').value = c1;
     } catch (_) {}
   
