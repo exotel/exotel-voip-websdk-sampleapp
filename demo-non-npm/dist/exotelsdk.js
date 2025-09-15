@@ -10086,7 +10086,9 @@ class ExotelWebClient {
     this.webrtcSIPPhone.registerAudioDeviceChangeCallback(audioInputDeviceChangeCallback, audioOutputDeviceChangeCallback, onDeviceChangeCallback);
   }
   static setEnableConsoleLogging(enable) {
-    logger.log("ExWebClient: setEnableConsoleLogging: Entry, enable: " + enable);
+    if (enable) {
+      logger.log("ExWebClient: setEnableConsoleLogging: Entry, enable: " + enable);
+    }
     logger.setEnableConsoleLogging(enable);
   }
   static setAudioOutputVolume(audioElementName, value) {
