@@ -1,24 +1,5 @@
 const exWebClient2 = new exotelSDK.ExotelWebClient();
 
-exWebClient2.registerLoggerCallback(function (type, message, args) {
-    switch (type) {
-        case "log":
-            console.log(`demo2: ${message}`, args);
-            break;
-        case "info":
-            console.info(`demo2: ${message}`, args);
-            break;
-        case "error":
-            console.error(`demo2: ${message}`, args);
-            break;
-        case "warn":
-            console.warn(`demo2: ${message}`, args);
-            break;
-        default:
-            console.log(`demo2: ${message}`, args);
-            break;
-    }
-});
 
 var call2 = null;
 var isInitialized2 = false;

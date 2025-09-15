@@ -1,25 +1,5 @@
 const exWebClient = new exotelSDK.ExotelWebClient();
-exWebClient.setEnableConsoleLogging(true);
-exWebClient.registerLoggerCallback(function (type, message, args) {
 
-    switch (type) {
-        case "log":
-            console.log(`demo: ${message}`, args);
-            break;
-        case "info":
-            console.info(`demo: ${message}`, args);
-            break;
-        case "error":
-            console.error(`demo: ${message}`, args);
-            break;
-        case "warn":
-            console.warn(`demo: ${message}`, args);
-            break;
-        default:
-            console.log(`demo: ${message}`, args);
-            break;
-    }
-});
 
 var call = null;
 
@@ -327,31 +307,27 @@ function _percentToUnit(v) {
     const n = Number(v);
     if (Number.isNaN(n)) return 1.0;
     return Math.max(0, Math.min(1, n / 100));
-  }
+}
   
   // Global notifications: apply to ALL accounts present on the page
-  function onGlobalSoundVolumeChange(type, percent) {
-    const value = _percentToUnit(percent);
-    // Apply to Account 1
-    try { exWebClient.setAudioOutputVolume(type, value); } catch (_) {}
-    // Apply to Account 2 if it exists
-    try { if (window.exWebClient2 && window.onGlobalSoundVolumeChange2) window.onGlobalSoundVolumeChange2(type, percent); } catch (_) {}
-  }
+  
   
   // Per-account call volumes
   function onCallVolumeChange1(percent) {
     const value = _percentToUnit(percent);
-    try { exWebClient.setAudioOutputVolume("audioRemote", value); } catch (_) {}
+    try { exWebClient.setCallAudioOutputVolume( value); } catch (e) {
+        console.error(`Failed to set call audio output volume: ${e}`);
+    }
   }
     
   // Initialize slider positions from SDK (optional but nice)
   function initVolumeSliders() {
     // Initialize Account 1 sliders
     try {
-      const r = Math.round((exWebClient.getAudioOutputVolume('ringtone') ?? 1) * 100);
-      const rb = Math.round((exWebClient.getAudioOutputVolume('ringback') ?? 1) * 100);
-      const b = Math.round((exWebClient.getAudioOutputVolume('beep') ?? 1) * 100);
-      const d = Math.round((exWebClient.getAudioOutputVolume('dtmf') ?? 1) * 100);
+      const r = Math.round((exotelSDK.ExotelWebClient.getAudioOutputVolume('ringtone') ?? 1) * 100);
+      const rb = Math.round((exotelSDK.ExotelWebClient.getAudioOutputVolume('ringback') ?? 1) * 100);
+      const b = Math.round((exotelSDK.ExotelWebClient.getAudioOutputVolume('beep') ?? 1) * 100);
+      const d = Math.round((exotelSDK.ExotelWebClient.getAudioOutputVolume('dtmf') ?? 1) * 100);
       const c1 = Math.round((exWebClient.getAudioOutputVolume('audioRemote') ?? 1) * 100);
   
       const s = id => document.getElementById(id);

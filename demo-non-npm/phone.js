@@ -2,7 +2,7 @@ phone = '[\
 {\
     "Username":"kashishrZlZ8kFNA",\
     "DisplayName":"Guru",\
-    "HostServer":"voip.in1.exotel.com",\
+    "HostServer":"voip.qa.exotel.com",\
     "Domain":"sprinklr2m.voip.exotel.com",\
     "Port":443,\
     "Password":"kashish@789",\
