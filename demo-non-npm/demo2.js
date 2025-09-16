@@ -1,24 +1,5 @@
 const exWebClient2 = new exotelSDK.ExotelWebClient();
 
-exWebClient2.registerLoggerCallback(function (type, message, args) {
-    switch (type) {
-        case "log":
-            console.log(`demo2: ${message}`, args);
-            break;
-        case "info":
-            console.info(`demo2: ${message}`, args);
-            break;
-        case "error":
-            console.error(`demo2: ${message}`, args);
-            break;
-        case "warn":
-            console.warn(`demo2: ${message}`, args);
-            break;
-        default:
-            console.log(`demo2: ${message}`, args);
-            break;
-    }
-});
 
 var call2 = null;
 var isInitialized2 = false;
@@ -183,5 +164,28 @@ async function populateDeviceDropdowns2() {
 window.addEventListener('load', () => {
     initSDK2();
     populateDeviceDropdowns2();
+    initVolumeSliders2();
 });
 navigator.mediaDevices.addEventListener('devicechange', populateDeviceDropdowns2);
+
+// ----- Account 2 volume helpers -----
+function _percentToUnit2(v) {
+  const n = Number(v);
+  if (Number.isNaN(n)) return 1.0;
+  return Math.max(0, Math.min(1, n / 100));
+}
+
+// Account 2 call volume
+function onCallVolumeChange2(percent) {
+  const value = _percentToUnit2(percent);
+  try { exWebClient2.setCallAudioOutputVolume( value); } catch (_) {}
+}
+
+// Initialize Account 2 volume sliders
+function initVolumeSliders2() {
+  try {
+    const c2 = Math.round((exWebClient2.getAudioOutputVolume('audioRemote') ?? 1) * 100);
+    const s = id => document.getElementById(id);
+    if (s('slider-call-acc2')) s('slider-call-acc2').value = c2;
+  } catch (_) {}
+}

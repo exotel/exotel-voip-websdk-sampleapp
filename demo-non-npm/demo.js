@@ -1,25 +1,5 @@
 const exWebClient = new exotelSDK.ExotelWebClient();
-exWebClient.setEnableConsoleLogging(true);
-exWebClient.registerLoggerCallback(function (type, message, args) {
 
-    switch (type) {
-        case "log":
-            console.log(`demo: ${message}`, args);
-            break;
-        case "info":
-            console.info(`demo: ${message}`, args);
-            break;
-        case "error":
-            console.error(`demo: ${message}`, args);
-            break;
-        case "warn":
-            console.warn(`demo: ${message}`, args);
-            break;
-        default:
-            console.log(`demo: ${message}`, args);
-            break;
-    }
-});
 
 var call = null;
 
@@ -84,6 +64,23 @@ function RegisterEventCallBack(state, sipInfo) {
     }, function (deviceId) {
         console.log(`demo:audioOutputDeviceCallback device changed to ${deviceId}`);
     });
+
+
+  // --- NEW: once registered, apply UI volumes to SDK ---
+  if (String(state).toLowerCase() === "registered") {
+    const pct = id => {
+      const el = document.getElementById(id);
+      return el ? Math.max(0, Math.min(1, Number(el.value) / 100)) : 1;
+    };
+
+    // Global notif volumes -> all accounts
+    ["ringtone", "ringbacktone", "beeptone", "dtmftone"].forEach(t => {
+      try { exWebClient.setSoundVolume(t, pct(`slider-${t}`)); } catch {}
+    });
+
+    // Per-account call volume
+    try { exWebClient.setAudioOutputVolume("audioRemote", pct("slider-call-acc1")); } catch {}
+  }
 }
 
 function SessionCallback(state, sipInfo) {
@@ -303,3 +300,52 @@ function unmuteCall() {
         logDiagnostics('No active call to unmute');
     }
 }
+
+
+// ----- volume helpers -----
+function _percentToUnit(v) {
+    const n = Number(v);
+    if (Number.isNaN(n)) return 1.0;
+    return Math.max(0, Math.min(1, n / 100));
+}
+  
+  // Global notifications: apply to ALL accounts present on the page
+  
+  
+  // Per-account call volumes
+  function onCallVolumeChange1(percent) {
+    const value = _percentToUnit(percent);
+    try { exWebClient.setCallAudioOutputVolume( value); } catch (e) {
+        console.error(`Failed to set call audio output volume: ${e}`);
+    }
+  }
+    
+  // Initialize slider positions from SDK (optional but nice)
+  function initVolumeSliders() {
+    // Initialize Account 1 sliders
+    try {
+      const r = Math.round((exotelSDK.ExotelWebClient.getAudioOutputVolume('ringtone') ?? 1) * 100);
+      const rb = Math.round((exotelSDK.ExotelWebClient.getAudioOutputVolume('ringbacktone') ?? 1) * 100);
+      const b = Math.round((exotelSDK.ExotelWebClient.getAudioOutputVolume('beeptone') ?? 1) * 100);
+      const d = Math.round((exotelSDK.ExotelWebClient.getAudioOutputVolume('dtmftone') ?? 1) * 100);
+      const c1 = Math.round((exWebClient.getAudioOutputVolume('audioRemote') ?? 1) * 100);
+  
+      const s = id => document.getElementById(id);
+      if (s('slider-ringtone')) s('slider-ringtone').value = r;
+      if (s('slider-ringbacktone')) s('slider-ringbacktone').value = rb;
+      if (s('slider-beeptone'))     s('slider-beeptone').value = b;
+      if (s('slider-dtmftone'))     s('slider-dtmftone').value = d;
+      if (s('slider-call-acc1')) s('slider-call-acc1').value = c1;
+    } catch (_) {}
+  
+    // If a second account exists, set its call slider too
+    try {
+      if (window.exWebClient2) {
+        const s = id => document.getElementById(id);
+        if (s('slider-call-acc2')) s('slider-call-acc2').value = c2;
+      }
+    } catch (_) {}
+    
+    // Initialize Account 2 sliders if available
+    try { if (window.initVolumeSliders2) window.initVolumeSliders2(); } catch (_) {}
+  }

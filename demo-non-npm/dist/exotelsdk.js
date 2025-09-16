@@ -1,6 +1,6 @@
 /*!
  * 
- * WebRTC CLient SIP version 3.0.2
+ * WebRTC CLient SIP version 3.0.3
  *
  */
 (function webpackUniversalModuleDefinition(root, factory) {
@@ -49,6 +49,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var _coreSDKLogger__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./coreSDKLogger */ "../webrtc-core-sdk/src/coreSDKLogger.js");
 
 const logger = _coreSDKLogger__WEBPACK_IMPORTED_MODULE_0__["default"];
+const AudioManagerCtx = window.AudioContext || window.webkitAudioContext;
 const audioDeviceManager = {
   resetInputDevice: false,
   resetOutputDevice: false,
@@ -56,6 +57,7 @@ const audioDeviceManager = {
   currentAudioOutputDeviceId: "default",
   mediaDevices: [],
   enableAutoAudioDeviceChangeHandling: false,
+  webAudioCtx: new AudioManagerCtx(),
   // Method to set the resetInputDevice flag
   setResetInputDeviceFlag(value) {
     this.resetInputDevice = value;
@@ -168,6 +170,27 @@ const audioDeviceManager = {
       logger.log("audioDeviceManager:enumerateDevices device enumeration failed", e);
     }
     if (callback) callback();
+  },
+  configureAudioGainNode(sourceNode) {
+    logger.log("audioDeviceManager:configureAudioGainNode entry");
+    let gainNode = this.webAudioCtx.createGain();
+    sourceNode.connect(gainNode).connect(this.webAudioCtx.destination);
+    return gainNode;
+  },
+  createAndConfigureAudioGainNode(audioElement) {
+    logger.log("audioDeviceManager:createAndConfigureAudioGainNode entry for audioElement", audioElement);
+    // get audio track from audio element
+    let sourceNode = this.webAudioCtx.createMediaElementSource(audioElement);
+    // Create a GainNode
+    let gainNode = this.configureAudioGainNode(sourceNode);
+
+    // resume audio context when audio element is played
+    audioElement.addEventListener("play", () => {
+      if (this.webAudioCtx.state === "suspended") {
+        this.webAudioCtx.resume();
+      }
+    });
+    return gainNode;
   }
 };
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (audioDeviceManager);
@@ -6026,8 +6049,7 @@ const version=_version__WEBPACK_IMPORTED_MODULE_0__.LIBRARY_VERSION;const name="
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__),
-/* harmony export */   getLogger: () => (/* binding */ getLogger)
+/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
 /* harmony export */ });
 /* harmony import */ var _audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./audioDeviceManager.js */ "../webrtc-core-sdk/src/audioDeviceManager.js");
 /* harmony import */ var _coreSDKLogger_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./coreSDKLogger.js */ "../webrtc-core-sdk/src/coreSDKLogger.js");
@@ -6045,25 +6067,21 @@ var ringbacktone = document.createElement("audio");
 ringbacktone.src = __webpack_require__(/*! ./static/ringbacktone.wav */ "../webrtc-core-sdk/src/static/ringbacktone.wav");
 var dtmftone = document.createElement("audio");
 dtmftone.src = __webpack_require__(/*! ./static/dtmf.wav */ "../webrtc-core-sdk/src/static/dtmf.wav");
-var audioRemote = document.createElement("audio");
-function getLogger() {
-  let uaLogger;
-  try {
-    let userAgent = SIP.UserAgent;
-    uaLogger = userAgent.getLogger("sip.WebrtcLib");
-  } catch (e) {
-    logger.log("sipjsphone: getLogger: No userAgent.getLogger, Using console log");
-    return console;
-  }
-  if (uaLogger) {
-    return uaLogger;
-  } else {
-    logger.log("sipjsphone: getLogger: No Logger, Using console log");
-    return logger;
-  }
-}
 class SIPJSPhone {
+  static toBeConfigure = true;
+  static audioElementNameVsAudioGainNodeMap = {};
+  static configure() {
+    logger.log("SIPJSPhone: configure: entry");
+    SIPJSPhone.audioElementNameVsAudioGainNodeMap["ringtone"] = _audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.createAndConfigureAudioGainNode(ringtone);
+    SIPJSPhone.audioElementNameVsAudioGainNodeMap["ringbacktone"] = _audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.createAndConfigureAudioGainNode(ringbacktone);
+    SIPJSPhone.audioElementNameVsAudioGainNodeMap["dtmftone"] = _audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.createAndConfigureAudioGainNode(dtmftone);
+    SIPJSPhone.audioElementNameVsAudioGainNodeMap["beeptone"] = _audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.createAndConfigureAudioGainNode(beeptone);
+  }
   constructor(delegate, username) {
+    if (SIPJSPhone.toBeConfigure) {
+      SIPJSPhone.toBeConfigure = false;
+      SIPJSPhone.configure();
+    }
     this.webrtcSIPPhoneEventDelegate = delegate;
     this.username = username;
     this.ctxSip = {};
@@ -6145,6 +6163,7 @@ class SIPJSPhone {
     this.bHoldEnable = false;
     this.register_flag = false;
     this.enableAutoAudioDeviceChangeHandling = false;
+    this.addPreferredCodec = this.addPreferredCodec.bind(this);
     this.ringtone = ringtone;
     this.beeptone = beeptone;
     this.ringbacktone = ringbacktone;
@@ -6152,13 +6171,39 @@ class SIPJSPhone {
     this.audioRemote = document.createElement("audio");
     this.audioRemote.style.display = 'none';
     document.body.appendChild(this.audioRemote);
-    this.addPreferredCodec = this.addPreferredCodec.bind(this);
+    this.callAudioOutputVolume = 1;
+  }
+  setCallAudioOutputVolume(value) {
+    logger.log(`sipjsphone: setCallAudioOutputVolume: ${value}`);
+    this.callAudioOutputVolume = Math.max(0, Math.min(1, value));
+    this.audioRemote.volume = this.callAudioOutputVolume;
+    return true;
+  }
+  getCallAudioOutputVolume() {
+    logger.log(`sipjsphone: getCallAudioOutputVolume`);
+    return this.callAudioOutputVolume;
+  }
 
-    // In the constructor, after initializing audio elements:
-    [this.ringtone, this.beeptone, this.ringbacktone, this.dtmftone].forEach(audio => {
-      audio.muted = false;
-      audio.volume = 1.0;
-    });
+  // Volume control methods
+  static setAudioOutputVolume(audioElementName, value) {
+    logger.log(`SIPJSPhone: setAudioOutputVolume: ${audioElementName} volume set to ${value}`);
+    if (!SIPJSPhone.audioElementNameVsAudioGainNodeMap.hasOwnProperty(audioElementName)) {
+      logger.error(`SIPJSPhone: setAudioOutputVolume: Invalid audio element name: ${audioElementName}`);
+      throw new Error(`Invalid audio element name: ${audioElementName}`);
+    }
+    let gainNode = SIPJSPhone.audioElementNameVsAudioGainNodeMap[audioElementName];
+    gainNode.gain.value = Math.max(0, Math.min(1, value));
+    logger.log(`SIPJSPhone: setAudioOutputVolume: ${audioElementName} volume set to ${value}`);
+    return true;
+  }
+  static getAudioOutputVolume(audioElementName) {
+    logger.log(`SIPJSPhone: getAudioOutputVolume: ${audioElementName}`);
+    if (!SIPJSPhone.audioElementNameVsAudioGainNodeMap.hasOwnProperty(audioElementName)) {
+      logger.error(`SIPJSPhone: getAudioOutputVolume: Invalid audio element name: ${audioElementName}`);
+      throw new Error(`Invalid audio element name: ${audioElementName}`);
+    }
+    let gainNode = SIPJSPhone.audioElementNameVsAudioGainNodeMap[audioElementName];
+    return gainNode.gain.value;
   }
   attachGlobalDeviceChangeListener() {
     logger.log("SIPJSPhone: Attaching global devicechange event listener enableAutoAudioDeviceChangeHandling = ", this.enableAutoAudioDeviceChangeHandling);
@@ -6232,6 +6277,7 @@ class SIPJSPhone {
           logger.log("sipjsphone: stopRingTone: Exception:", e);
         }
       },
+      // Update the startRingbackTone method (around line 223) to use Web Audio:
       startRingbackTone: () => {
         if (!this.ctxSip.ringbacktone) {
           this.ctxSip.ringbacktone = this.ringbacktone;
@@ -6366,12 +6412,8 @@ class SIPJSPhone {
           s.cancel();
         }
       },
+      // Update the sipSendDTMF method (around line 389) to use Web Audio:
       sipSendDTMF: digit => {
-        try {
-          this.ctxSip.dtmfTone.play();
-        } catch (e) {
-          logger.log("sipjsphone: sipSendDTMF: Exception:", e);
-        }
         var a = this.ctxSip.callActiveID;
         if (a) {
           var s = this.ctxSip.Sessions[a];
@@ -6959,33 +7001,34 @@ class SIPJSPhone {
     });
   }
   assignStream(stream, element) {
+    logger.log("sipjsphone: assignStream: entry");
     if (_audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.currentAudioOutputDeviceId != "default") element.setSinkId(_audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.currentAudioOutputDeviceId);
+
     // Set element source.
-    element.autoplay = true; // Safari does not allow calling .play() from a
-    // non user action
+    element.autoplay = true;
     element.srcObject = stream;
+
+    // Set HTML audio element volume to 0 to prevent direct audio output
+    element.volume = this.callAudioOutputVolume;
 
     // Load and start playback of media.
     element.play().catch(error => {
-      logger.error("Failed to play media");
-      logger.error(error);
+      logger.error("sipjsphone: assignStream: Failed to play media", error);
     });
 
     // If a track is added, load and restart playback of media.
     stream.onaddtrack = () => {
-      element.load(); // Safari does not work otheriwse
+      element.load();
       element.play().catch(error => {
-        logger.error("Failed to play remote media on add track");
-        logger.error(error);
+        logger.error("sipjsphone: assignStream: Failed to play remote media on add track", error);
       });
     };
 
     // If a track is removed, load and restart playback of media.
     stream.onremovetrack = () => {
-      element.load(); // Safari does not work otheriwse
+      element.load();
       element.play().catch(error => {
-        logger.error("Failed to play remote media on remove track");
-        logger.error(error);
+        logger.error("sipjsphone: assignStream: Failed to play remote media on remove track", error);
       });
     };
   }
@@ -7235,7 +7278,7 @@ class SIPJSPhone {
     logger.log("sipjsphone: changeAudioOutputDevice : ", deviceId, onSuccess, onError, "forceDeviceChange = ", forceDeviceChange, "enableAutoAudioDeviceChangeHandling = ", this.enableAutoAudioDeviceChangeHandling);
     try {
       // Ensure device list is up-to-date
-      await _audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.enumerateDevices();
+      await _audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.enumerateDevices(() => {});
       if (!this.audioRemote) {
         const errorMsg = 'SIPJSPhone:changeAudioOutputDevice audioRemote element is not set.';
         logger.error(errorMsg);
@@ -7758,6 +7801,22 @@ class WebrtcSIPPhone {
   registerAudioDeviceChangeCallback(audioInputDeviceChangeCallback, audioOutputDeviceChangeCallback, onDeviceChangeCallback) {
     logger.log("webrtcSIPPhone: registerAudioDeviceChangeCallback entry");
     this.phone.registerAudioDeviceChangeCallback(audioInputDeviceChangeCallback, audioOutputDeviceChangeCallback, onDeviceChangeCallback);
+  }
+  static setAudioOutputVolume(audioElementName, value) {
+    logger.log("WebrtcSIPPhone: setAudioOutputVolume: ", audioElementName, value);
+    return _sipjsphone__WEBPACK_IMPORTED_MODULE_1__["default"].setAudioOutputVolume(audioElementName, value);
+  }
+  static getAudioOutputVolume(audioElementName) {
+    logger.log("webrtcSIPPhone: getAudioOutputVolume: ", audioElementName);
+    return _sipjsphone__WEBPACK_IMPORTED_MODULE_1__["default"].getAudioOutputVolume(audioElementName);
+  }
+  setCallAudioOutputVolume(value) {
+    logger.log("webrtcSIPPhone: setCallAudioOutputVolume: ", value);
+    return this.phone.setCallAudioOutputVolume(value);
+  }
+  getCallAudioOutputVolume() {
+    logger.log("webrtcSIPPhone: getCallAudioOutputVolume");
+    return this.phone.getCallAudioOutputVolume();
   }
 }
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (WebrtcSIPPhone);
@@ -9665,7 +9724,6 @@ class ExSynchronousHandler {
     logger.log("synchronousHandler: onResponse, phone is connected.\n");
   }
 }
-
 class ExotelWebClient {
   /**
    * @param {Object} sipAccntInfo 
@@ -9686,6 +9744,7 @@ class ExotelWebClient {
   registerCallback = null;
   sessionCallback = null;
   logger = (0,_exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_8__.getLogger)();
+  static clientSDKLoggerCallback = null;
   constructor() {
     // Initialize properties
     this.ctrlr = null;
@@ -9699,20 +9758,9 @@ class ExotelWebClient {
     this.currentSIPUserName = "";
     this.isReadyToRegister = true;
     this.sipAccountInfo = null;
-    this.clientSDKLoggerCallback = null;
     this.callbacks = new _listeners_Callback__WEBPACK_IMPORTED_MODULE_7__.Callback();
     this.registerCallback = new _listeners_Callback__WEBPACK_IMPORTED_MODULE_7__.RegisterCallback();
     this.sessionCallback = new _listeners_Callback__WEBPACK_IMPORTED_MODULE_7__.SessionCallback();
-    this.logger = (0,_exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_8__.getLogger)();
-
-    // Register logger callback
-    let exwebClientOb = this;
-    this.logger.registerLoggerCallback((type, message, args) => {
-      _api_LogManager_js__WEBPACK_IMPORTED_MODULE_10__["default"].onLog(type, message, args);
-      if (exwebClientOb.clientSDKLoggerCallback) {
-        exwebClientOb.clientSDKLoggerCallback("log", message, args);
-      }
-    });
   }
   initWebrtc = async (sipAccountInfo_, RegisterEventCallBack, CallListenerCallback, SessionCallback, enableAutoAudioDeviceChangeHandling = false) => {
     const userName = sipAccountInfo_?.userName;
@@ -10025,8 +10073,9 @@ class ExotelWebClient {
     }
     this.webrtcSIPPhone.setPreferredCodec(codecName);
   }
-  registerLoggerCallback(callback) {
-    this.clientSDKLoggerCallback = callback;
+  static registerLoggerCallback(callback) {
+    logger.log("ExWebClient: registerLoggerCallback: Entry");
+    ExotelWebClient.clientSDKLoggerCallback = callback;
   }
   registerAudioDeviceChangeCallback(audioInputDeviceChangeCallback, audioOutputDeviceChangeCallback, onDeviceChangeCallback) {
     logger.log("ExWebClient: registerAudioDeviceChangeCallback: Entry");
@@ -10036,13 +10085,36 @@ class ExotelWebClient {
     }
     this.webrtcSIPPhone.registerAudioDeviceChangeCallback(audioInputDeviceChangeCallback, audioOutputDeviceChangeCallback, onDeviceChangeCallback);
   }
-  setEnableConsoleLogging(enable) {
+  static setEnableConsoleLogging(enable) {
     if (enable) {
-      logger.log(`ExWebClient: setEnableConsoleLogging: ${enable}`);
+      logger.log("ExWebClient: setEnableConsoleLogging: Entry, enable: " + enable);
     }
     logger.setEnableConsoleLogging(enable);
   }
+  static setAudioOutputVolume(audioElementName, value) {
+    logger.log(`ExWebClient: setAudioOutputVolume: Entry, audioElementName: ${audioElementName}, value: ${value}`);
+    _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_8__.WebrtcSIPPhone.setAudioOutputVolume(audioElementName, value);
+  }
+  static getAudioOutputVolume(audioElementName) {
+    logger.log(`ExWebClient: getAudioOutputVolume: Entry, audioElementName: ${audioElementName}`);
+    return _exotel_npm_dev_webrtc_core_sdk__WEBPACK_IMPORTED_MODULE_8__.WebrtcSIPPhone.getAudioOutputVolume(audioElementName);
+  }
+  setCallAudioOutputVolume(value) {
+    logger.log(`ExWebClient: setCallAudioOutputVolume: Entry, value: ${value}`);
+    this.webrtcSIPPhone.setCallAudioOutputVolume(value);
+  }
+  getCallAudioOutputVolume() {
+    logger.log(`ExWebClient: getCallAudioOutputVolume: Entry`);
+    return this.webrtcSIPPhone.getCallAudioOutputVolume();
+  }
 }
+logger.registerLoggerCallback((type, message, args) => {
+  _api_LogManager_js__WEBPACK_IMPORTED_MODULE_10__["default"].onLog(type, message, args);
+  if (ExotelWebClient.clientSDKLoggerCallback) {
+    ExotelWebClient.clientSDKLoggerCallback("log", message, args);
+  }
+});
+
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (ExotelWebClient);
 
 /***/ }),

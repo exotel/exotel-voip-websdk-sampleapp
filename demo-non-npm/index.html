@@ -4,6 +4,7 @@
     <title>WebPhone - Two Accounts</title>
     <script type="text/javascript" src="./dist/exotelsdk.js"></script>
 
+    <script type="text/javascript" src="common.js"></script>
     <!-- Account 1 -->
     <script type="text/javascript" src="phone.js"></script>
     <script type="text/javascript" src="demo.js"></script>
@@ -24,6 +25,15 @@
     <button id="holdButton" onclick="toggleHoldButton()">HOLD</button>
     <button onclick="sendDTMF(1)">DTMF 1</button>
     <button onclick="sendDTMF(2)">DTMF 2</button><br><br>
+    
+    <!-- Account 1 Call Volume -->
+    <div style="margin:8px 0;">
+        <label>Account 1 Call Volume:
+        <input id="slider-call-acc1" type="range" min="0" max="100" step="1" value="100"
+                oninput="onCallVolumeChange1(this.value)">
+        </label>
+    </div>
+
     <!-- Dropdown for Input Devices -->
     <b><label for="inputDevices">Select Input Device:</label></b>
     <select id="inputDevices"></select>
@@ -49,6 +59,15 @@
     <button id="holdButton2" onclick="toggleHoldButton2()">HOLD</button>
     <button onclick="sendDTMF2(1)">DTMF 1</button>
     <button onclick="sendDTMF2(2)">DTMF 2</button><br><br>
+    
+    <!-- Account 2 Call Volume -->
+    <div style="margin:8px 0;">
+        <label>Account 2 Call Volume:
+        <input id="slider-call-acc2" type="range" min="0" max="100" step="1" value="100"
+                oninput="onCallVolumeChange2(this.value)">
+        </label>
+    </div>
+    
     <!-- Dropdown for Input Devices -->
     <b><label for="inputDevices2">Select Input Device:</label></b>
     <select id="inputDevices2"></select>
@@ -60,5 +79,38 @@
     <button id="changeOutputButton2" onclick="changeAudioOutputDevice2()">Change Output Device</button>
     <br><br>
     <button onclick="downloadLogs2()">Download Logs</button><br><br>
+<!-- Global Notification Volume (applies to all accounts) -->
+<div id="global-audio-controls" style="margin:16px 0; padding:12px; border:1px solid #ddd;">
+    <h3 style="margin:0 0 8px;">Global Notification Volume</h3>
+  
+    <div>
+      <label>Ringtone:
+        <input id="slider-ringtone" type="range" min="0" max="100" step="1" value="100"
+               oninput="onGlobalSoundVolumeChange('ringtone', this.value)">
+      </label>
+    </div>
+  
+    <div>
+      <label>Ringbacktone:
+        <input id="slider-ringbacktone" type="range" min="0" max="100" step="1" value="100"
+               oninput="onGlobalSoundVolumeChange('ringbacktone', this.value)">
+      </label>
+    </div>
+  
+    <div>
+      <label>Beep:
+        <input id="slider-beeptone" type="range" min="0" max="100" step="1" value="100"
+               oninput="onGlobalSoundVolumeChange('beeptone', this.value)">
+      </label>
+    </div>
+  
+    <div>
+      <label>DTMF:
+        <input id="slider-dtmftone" type="range" min="0" max="100" step="1" value="100"
+               oninput="onGlobalSoundVolumeChange('dtmftone', this.value)">
+      </label>
+    </div>
+  </div>
+  
 </body>
 </html>
