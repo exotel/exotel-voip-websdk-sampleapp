@@ -1,6 +1,6 @@
 /*!
  * 
- * WebRTC CLient SIP version 3.0.3
+ * WebRTC CLient SIP version 3.0.4
  *
  */
 (function webpackUniversalModuleDefinition(root, factory) {
@@ -6164,6 +6164,7 @@ class SIPJSPhone {
     this.register_flag = false;
     this.enableAutoAudioDeviceChangeHandling = false;
     this.addPreferredCodec = this.addPreferredCodec.bind(this);
+    this.enableNoiseSuppression = false;
     this.ringtone = ringtone;
     this.beeptone = beeptone;
     this.ringbacktone = ringbacktone;
@@ -6178,6 +6179,10 @@ class SIPJSPhone {
     this.callAudioOutputVolume = Math.max(0, Math.min(1, value));
     this.audioRemote.volume = this.callAudioOutputVolume;
     return true;
+  }
+  setNoiseSuppression(enabled) {
+    logger.log(`sipjsphone: setNoiseSuppression: ${enabled}`);
+    this.enableNoiseSuppression = enabled;
   }
   getCallAudioOutputVolume() {
     logger.log(`sipjsphone: getCallAudioOutputVolume`);
@@ -6642,7 +6647,9 @@ class SIPJSPhone {
         logLevel: "log",
         sessionDescriptionHandlerFactoryOptions: {
           constraints: {
-            audio: true,
+            audio: {
+              noiseSuppression: this.enableNoiseSuppression
+            },
             video: false
           }
         },
@@ -7184,7 +7191,8 @@ class SIPJSPhone {
           sessionDescriptionHandlerOptions: {
             constraints: {
               audio: {
-                deviceId: _audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.currentAudioInputDeviceId
+                deviceId: _audioDeviceManager_js__WEBPACK_IMPORTED_MODULE_0__.audioDeviceManager.currentAudioInputDeviceId,
+                noiseSuppression: this.enableNoiseSuppression
               },
               video: false
             }
@@ -7195,6 +7203,14 @@ class SIPJSPhone {
         });
       } else {
         newSess.accept({
+          sessionDescriptionHandlerOptions: {
+            constraints: {
+              audio: {
+                noiseSuppression: this.enableNoiseSuppression
+              },
+              video: false
+            }
+          },
           sessionDescriptionHandlerModifiers: [this.addPreferredCodec]
         }).catch(e => {
           this.onUserSessionAcceptFailed(e);
@@ -7817,6 +7833,10 @@ class WebrtcSIPPhone {
   getCallAudioOutputVolume() {
     logger.log("webrtcSIPPhone: getCallAudioOutputVolume");
     return this.phone.getCallAudioOutputVolume();
+  }
+  setNoiseSuppression(enabled = false) {
+    logger.log("webrtcSIPPhone: setNoiseSuppression: ", enabled);
+    this.phone.setNoiseSuppression(enabled);
   }
 }
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (WebrtcSIPPhone);
@@ -10106,6 +10126,10 @@ class ExotelWebClient {
   getCallAudioOutputVolume() {
     logger.log(`ExWebClient: getCallAudioOutputVolume: Entry`);
     return this.webrtcSIPPhone.getCallAudioOutputVolume();
+  }
+  setNoiseSuppression(enabled = false) {
+    logger.log(`ExWebClient: setNoiseSuppression: ${enabled}`);
+    this.webrtcSIPPhone.setNoiseSuppression(enabled);
   }
 }
 logger.registerLoggerCallback((type, message, args) => {
