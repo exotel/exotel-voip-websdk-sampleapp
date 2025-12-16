@@ -1,6 +1,6 @@
 /*!
  * 
- * WebRTC CLient SIP version 3.0.4
+ * WebRTC CLient SIP version 3.0.5
  *
  */
 (function webpackUniversalModuleDefinition(root, factory) {
@@ -9823,7 +9823,7 @@ class ExotelWebClient {
     this.setEventListener(this.eventListener);
 
     // Wait for public IP before registering
-    await fetchPublicIP(this.sipAccountInfo);
+    // await fetchPublicIP(this.sipAccountInfo);
 
     // Create phone instance if it wasn't created in constructor
     if (!this.phone) {
