@@ -1,6 +1,6 @@
 /*!
  * 
- * WebRTC CLient SIP version 3.0.5
+ * WebRTC CLient SIP version 3.0.6
  *
  */
 (function webpackUniversalModuleDefinition(root, factory) {
@@ -6636,6 +6636,9 @@ class SIPJSPhone {
         },
         displayName: this.txtDisplayName,
         hackWssInTransport: true,
+        contactParams: {
+          transport: "wss"
+        },
         stunServers: ["stun:stun.l.google.com:19302"],
         hackIpInContact: true,
         forceRport: true,
@@ -6648,7 +6651,7 @@ class SIPJSPhone {
         sessionDescriptionHandlerFactoryOptions: {
           constraints: {
             audio: {
-              noiseSuppression: this.enableNoiseSuppression
+              noiseSuppression: this.enableNoiseSuppression !== undefined ? this.enableNoiseSuppression : false
             },
             video: false
           }
@@ -7635,9 +7638,16 @@ class WebrtcSIPPhone {
       this.webrtcSIPPhoneEventDelegate = new _webrtcSIPPhoneEventDelegate__WEBPACK_IMPORTED_MODULE_2__["default"](this.username);
     }
     this.webrtcSIPPhoneEventDelegate.registerDelegate(delegate);
+
+    // Preserve noise suppression setting from existing phone instance if it exists
+    const existingNoiseSuppression = this.phone?.enableNoiseSuppression;
     switch (engine) {
       case "sipjs":
         this.phone = new _sipjsphone__WEBPACK_IMPORTED_MODULE_1__["default"](this.webrtcSIPPhoneEventDelegate, this.username);
+        // Restore noise suppression setting if it was set on the previous instance
+        if (existingNoiseSuppression) {
+          this.phone.setNoiseSuppression(existingNoiseSuppression);
+        }
         break;
       default:
         logger.log("webrtcSIPPhone: Unsupported engine type:", engine);
