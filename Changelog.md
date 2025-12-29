@@ -1,5 +1,8 @@
 Changelog
 
+v3.0.7 30 December, 2025
+-[VST-1306] hold unhold issue fix
+
 ## v3.0.6 19 December, 2025
 -[VST-1269] fixing noise suppression bug and added wss transport in contact params
 
