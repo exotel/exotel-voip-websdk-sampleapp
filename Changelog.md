@@ -1,5 +1,8 @@
 Changelog
 
+v3.0.8 30 December, 2025
+-[VST-1306] mute/unmute issue fix for preffered codec
+
 v3.0.7 30 December, 2025
 -[VST-1306] hold unhold issue fix
 

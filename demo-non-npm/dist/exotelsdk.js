@@ -1,6 +1,6 @@
 /*!
  * 
- * WebRTC CLient SIP version 3.0.7
+ * WebRTC CLient SIP version 3.0.8
  *
  */
 (function webpackUniversalModuleDefinition(root, factory) {
@@ -21438,7 +21438,7 @@ class SIPJSPhone {
 
 			// Extract and modify the audio m-line
 			let audioMLine = sdpLines[audioMLineIndex];
-			audioMLine = audioMLine.replace("RTP/SAVP", "RTP/AVP");
+			audioMLine = audioMLine.replace("RTP/SAVP", "RTP/SAVP");
 
 			const codecs = audioMLine.split(" ");
 			const mLineStart = codecs.slice(0, 3); // "m=audio <port> <protocol>"
@@ -21462,7 +21462,7 @@ class SIPJSPhone {
 
 			// Extract and modify the audio m-line
 			let audioMLine = sdpLines[audioMLineIndex];
-			audioMLine = audioMLine.replace("RTP/SAVP", "RTP/AVP");
+			audioMLine = audioMLine.replace("RTP/SAVP", "RTP/SAVP");
 
 			const codecs = audioMLine.split(" ");
 			const mLineStart = codecs.slice(0, 3); // "m=audio <port> <protocol>"

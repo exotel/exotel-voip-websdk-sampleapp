@@ -58,7 +58,7 @@ function CurrentOutputDeviceCallback(currentOutputDevice) {
 
 function RegisterEventCallBack(state, sipInfo) {
     document.getElementById("status").innerHTML = state;
-    exWebClient.setPreferredCodec("opus")
+    //exWebClient.setPreferredCodec("opus")
     exWebClient.registerAudioDeviceChangeCallback(function (deviceId) {
         console.log(`demo:audioInputDeviceCallback device changed to ${deviceId}`);
     }, function (deviceId) {
