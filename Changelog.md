@@ -1,5 +1,8 @@
 Changelog
 
+v3.0.9 27 March, 2026
+-[VST-1577] Removed the same-device-ID guard from replaceSenderTrack.
+
 v3.0.8 30 December, 2025
 -[VST-1306] mute/unmute issue fix for preffered codec
 
