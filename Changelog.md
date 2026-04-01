@@ -1,5 +1,10 @@
 Changelog
 
+
+## v3.0.10 01 April, 2026
+-[VST-1584]Updated webrtc-core-sdk to v3.0.10 with stack trace logging in error method
+
+
 v3.0.9 27 March, 2026
 -[VST-1577] Removed the same-device-ID guard from replaceSenderTrack.
 
