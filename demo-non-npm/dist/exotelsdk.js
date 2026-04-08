@@ -1,6 +1,6 @@
 /*!
  * 
- * WebRTC CLient SIP version 3.0.9
+ * WebRTC CLient SIP version 3.0.10
  *
  */
 (function webpackUniversalModuleDefinition(root, factory) {
@@ -8149,6 +8149,7 @@ function Call(webrtcSIPPhone) {
      * When call is terminated
      */
     logger.log('call ended');
+    logger.log('Hangup stack trace:', new Error().stack);
     webrtcSIPPhone.rejectCall();
   };
   this.MuteToggle = function () {
