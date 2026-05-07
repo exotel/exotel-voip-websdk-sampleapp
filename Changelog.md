@@ -1,5 +1,8 @@
 Changelog
 
+## v3.0.11 07 May, 2026
+-[VST-1584]Updated webrtc-core-sdk to v3.0.11 with dtmf tone fix
+
 
 ## v3.0.10 01 April, 2026
 -[VST-1584]Updated webrtc-core-sdk to v3.0.10 with stack trace logging in error method
