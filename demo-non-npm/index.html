@@ -113,8 +113,8 @@
     <div class="panel" style="border-color:#1967d2;">
         <h3>Ringing Duration (3.0.12)</h3>
         <p class="hint">
-            Success-criteria account: <code>fe2f6aa4f1f19da524946af2032b1a5t</code>.
-            Default is <b>30s</b> (was 15s). Prime Audio → START → place inbound call to this agent → <b>do not accept</b> → time how long ring plays.
+            Default incoming ringtone duration is <b>30s</b> (was 15s in older SDK versions).
+            Configure your agent in <code>phone.js</code>, then: Prime Audio → START → inbound call → <b>do not accept</b> → verify ring length matches the value you set below.
         </p>
         <div class="btn-row">
             <label>Duration (sec):
