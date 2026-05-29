@@ -1,12 +1,63 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>WebPhone - Two Accounts</title>
+    <title>Exotel WebRTC SDK — Sample App</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0 16px 16px; background: #f5f7fa; }
+        .app-header {
+            display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+            margin: 0 -16px 20px; padding: 14px 20px;
+            background: #fff; border-bottom: 1px solid #e5e7eb;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+        }
+        .app-header-logo-wrap {
+            background: #fff;
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+        .app-header img {
+            height: 40px; width: auto; display: block;
+        }
+        .app-header-text h1 {
+            margin: 0; font-size: 1.15rem; font-weight: 600; color: #111827;
+        }
+        .app-header-text p {
+            margin: 4px 0 0; font-size: 0.8rem; color: #6b7280;
+        }
+        .panel { margin: 16px 0; padding: 12px; border: 1px solid #ddd; border-radius: 6px; background: #fff; }
+        .panel h3 { margin-top: 0; }
+        .btn-row { margin: 8px 0; display: flex; flex-wrap: wrap; gap: 8px; }
+        #eventLog, #diagnosticsLog {
+            width: 100%; min-height: 120px; font-family: monospace; font-size: 12px;
+        }
+        .hint { color: #555; font-size: 13px; margin: 8px 0; }
+        hr { margin: 24px 0; }
+        #e2eBanner {
+            display: none; padding: 14px 16px; margin: 12px 0; border-radius: 8px;
+            font-size: 15px; line-height: 1.5; border: 2px solid #ccc;
+        }
+        .e2e-info { background: #eef6ff; border-color: #6ba3d8; }
+        .e2e-warn { background: #fff8e6; border-color: #e6a800; }
+        #e2eProgress { font-weight: bold; margin: 8px 0; min-height: 1.2em; }
+        #e2eReport { display: none; margin-top: 12px; }
+        .e2e-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .e2e-table td, .e2e-table th { border: 1px solid #ddd; padding: 6px 8px; text-align: left; }
+        .e2e-table tr.pass td:first-child { color: #0a7; font-weight: bold; }
+        .e2e-table tr.fail td:first-child { color: #c33; font-weight: bold; }
+        #e2eStartBtn { background: #1a73e8; color: #fff; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; font-size: 15px; }
+        #e2eStartBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+        #e2eCancelBtn { background: #666; color: #fff; border: none; padding: 10px 16px; border-radius: 6px; cursor: pointer; }
+        #captureStatus { font-family: monospace; font-size: 12px; color: #333; margin: 8px 0; }
+        #downloadFullBtn { background: #0d652d; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; }
+        #clearCaptureBtn { background: #666; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; }
+    </style>
     <script type="text/javascript" src="./dist/exotelsdk.js"></script>
 
     <script type="text/javascript" src="common.js"></script>
     <!-- Account 1 -->
     <script type="text/javascript" src="phone.js"></script>
+    <script type="text/javascript" src="demo-call-log-capture.js"></script>
     <script type="text/javascript" src="demo.js"></script>
 
     <!-- Account 2 -->
@@ -14,6 +65,82 @@
     <script type="text/javascript" src="demo2.js"></script>
 </head>
 <body>
+    <header class="app-header">
+        <div class="app-header-logo-wrap">
+            <img src="assets/exotel-logo.png" alt="Exotel" width="140" height="40" />
+        </div>
+        <div class="app-header-text">
+            <h1>WebRTC SDK Sample App</h1>
+            <p>demo-non-npm · bundled client SDK (exotelsdk.js)</p>
+        </div>
+    </header>
+
+    <div class="panel" style="border-color:#0d652d;">
+        <h3>Manual Call Test — Log Capture</h3>
+        <p class="hint">
+            All testing is <b>manual</b> (no automation). Console + event log + SDK logs are captured from page load.
+            After your call: test <b>Hold</b>, <b>Mute</b>, <b>DTMF</b>, and optional network blip, then click <b>Download Full Capture</b>.
+        </p>
+        <ol class="hint">
+            <li>Prime Audio → START → accept/place call</li>
+            <li>Hold / Unhold, Mute / Unmute, DTMF (1–9, *, #)</li>
+            <li>Optional: Simulate Network Blip or DevTools Offline ~5s</li>
+            <li><b>Download Full Capture</b> — one file with everything</li>
+        </ol>
+        <div class="btn-row">
+            <button id="downloadFullBtn" onclick="downloadFullCapture()">Download Full Capture</button>
+            <button id="clearCaptureBtn" onclick="callLogCapture.clearCapture()">Clear All Logs</button>
+            <button onclick="downloadLogs()">Download SDK Logs Only</button>
+        </div>
+        <div id="captureStatus">Recording…</div>
+    </div>
+
+    <div class="panel">
+        <h3>SDK Test Lab (Account 1)</h3>
+        <p class="hint">Click <b>Prime Audio</b> once after page load (uses your click to unlock browser audio). Then register and test inbound ring / DTMF / recovery.</p>
+        <div class="btn-row">
+            <button onclick="primeAudioForAccount1()">Prime Audio</button>
+            <button onclick="playTestTone('ringtone')">Test Ringtone</button>
+            <button onclick="playTestTone('ringbacktone')">Test Ringback</button>
+            <button onclick="playTestTone('dtmftone')">Test DTMF Tone</button>
+            <button onclick="playTestTone('beeptone')">Test Beep</button>
+            <button onclick="simulateNetworkBlip()">Simulate Network Blip</button>
+        </div>
+        <label for="eventLog"><b>Live event log</b> (calls, session, media recovery)</label>
+        <textarea id="eventLog" readonly></textarea>
+    </div>
+
+    <div class="panel" style="border-color:#1967d2;">
+        <h3>Ringing Duration (3.0.12)</h3>
+        <p class="hint">
+            Success-criteria account: <code>fe2f6aa4f1f19da524946af2032b1a5t</code>.
+            Default is <b>30s</b> (was 15s). Prime Audio → START → place inbound call to this agent → <b>do not accept</b> → time how long ring plays.
+        </p>
+        <div class="btn-row">
+            <label>Duration (sec):
+                <input id="ringDurationInput" type="number" min="1" max="120" value="30" style="width:4em;">
+            </label>
+            <button onclick="applyRingingDuration()">Set Duration</button>
+            <button onclick="logRingingDuration()">Get Duration</button>
+            <button onclick="stopRingingNow()">Stop Ring Now</button>
+        </div>
+    </div>
+
+    <div class="panel">
+        <h3>Diagnostics</h3>
+        <div class="btn-row">
+            <button onclick="initDiagnostics()">Init Diagnostics</button>
+            <button onclick="startSpeakerDiagnosticsTest()">Speaker Test</button>
+            <button onclick="stopSpeakerDiagnosticsTest(true)">Stop Speaker (pass)</button>
+            <button onclick="startMicDiagnosticsTest()">Mic Test</button>
+            <button onclick="stopMicDiagnosticsTest(true)">Stop Mic (pass)</button>
+            <button onclick="startNetworkDiagnostics()">Network Test</button>
+            <button onclick="stopNetworkDiagnostics()">Stop Network</button>
+            <button onclick="closeDiagnostics()">Close Diagnostics</button>
+        </div>
+        <textarea id="diagnosticsLog" readonly></textarea>
+    </div>
+
     <!-- Account 1 UI -->
     <h3>Account 1</h3>
     <b>Register Status: </b><b id="status">unregister</b><br><br>
@@ -44,7 +171,8 @@
     <select id="outputDevices"></select>
     <button id="changeOutputButton" onclick="changeAudioOutputDevice()">Change Output Device</button>
     <br><br>
-    <button onclick="downloadLogs()">Download Logs</button><br><br>
+    <button onclick="downloadFullCapture()">Download Full Capture</button>
+    <button onclick="downloadLogs()">Download SDK Logs Only</button><br><br>
 
     <hr>
 

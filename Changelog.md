@@ -1,5 +1,8 @@
 Changelog
 
+## v3.0.12 29 May, 2026
+-[VST-1775] Sample app: bundled SDK 3.0.12 (media resilience), manual call log capture, ringing duration QA panel, UI tones in dist/audio/
+
 ## v3.0.11 07 May, 2026
 -[VST-1584]Updated webrtc-core-sdk to v3.0.11 with dtmf tone fix
 
