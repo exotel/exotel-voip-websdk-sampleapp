@@ -2,20 +2,7 @@ const exWebClient = new exotelSDK.ExotelWebClient();
 
 
 var call = null;
-let audioPrimed = false;
 
-function appendEventLog(message) {
-    const ta = document.getElementById('eventLog');
-    const line = `[${new Date().toISOString()}] ${message}`;
-    console.log(line);
-    if (ta) {
-        ta.value += line + "\n";
-        ta.scrollTop = ta.scrollHeight;
-    }
-    if (typeof window.updateCaptureStatus === 'function') {
-        window.updateCaptureStatus();
-    }
-}
 
 function initSDK() {
     isInitialized = true;
@@ -33,51 +20,6 @@ function initSDK() {
         'endpoint': sipInfo.EndPoint
     };
     exWebClient.initWebrtc(sipAccountInfo, RegisterEventCallBack, CallListenerCallback, SessionCallback)
-    appendEventLog('SDK initialized for ' + sipAccountInfo.userName);
-}
-
-async function primeAudioForAccount1() {
-    try {
-        const primed = await exWebClient.primeUiTones();
-        audioPrimed = primed.length > 0;
-        appendEventLog('Prime audio: ' + (primed.length ? primed.join(', ') : 'none (init SDK first)'));
-    } catch (e) {
-        appendEventLog('Prime audio failed: ' + e);
-    }
-}
-
-async function playTestTone(toneName) {
-    if (!audioPrimed) {
-        await primeAudioForAccount1();
-    }
-    const ok = await exWebClient.playTestTone(toneName);
-    appendEventLog(`Test tone ${toneName}: ${ok ? 'playing' : 'failed'}`);
-}
-
-function applyRingingDuration() {
-    const sec = Number(document.getElementById('ringDurationInput').value);
-    const ok = exWebClient.setRingingDuration(sec);
-    appendEventLog(`setRingingDuration(${sec}): ${ok ? 'ok' : 'invalid'}`);
-}
-
-function logRingingDuration() {
-    appendEventLog(`getRingingDuration: ${exWebClient.getRingingDuration()} sec`);
-}
-
-function stopRingingNow() {
-    exWebClient.stopRingTone();
-    appendEventLog('stopRingTone called');
-}
-
-function simulateNetworkBlip() {
-    if (!call) {
-        appendEventLog('Network blip: place a call first.');
-        return;
-    }
-    if (window.callLogCapture) {
-        callLogCapture.markManual('network_blip_hint', 'DevTools Network Offline ~5s or Wi-Fi off — watch ice_connection_state_* and media_recovery_*');
-    }
-    appendEventLog('Network blip: DevTools → Network → Offline ~5s → Online (or turn Wi-Fi off). Watch Session log for ice_connection_state_* and media_recovery_*.');
 }
 
 function UserAgentRegistration() {
@@ -86,27 +28,22 @@ function UserAgentRegistration() {
 }
 
 var toggleRegister = true;
-async function registerToggle() {
+function registerToggle() {
     let toggler = toggleRegister;
     toggleRegister = !toggleRegister;
     if (toggler) {
-        await primeAudioForAccount1();
         UserAgentRegistration();
         document.getElementById("registerButton").innerHTML = "STOP";
-        appendEventLog('Register requested');
     } else {
         console.log("doing unregistration");
         exWebClient.UnRegister();
         document.getElementById("registerButton").innerHTML = "START";
-        appendEventLog('Unregister requested');
     }
 }
 
 function CallListenerCallback(callObj, eventType, sipInfo) {
     call = exWebClient.getCall();
     document.getElementById("call_status").innerHTML = eventType;
-    appendEventLog(`Call event: ${eventType}`);
-    if (window.callLogCapture) window.callLogCapture.onCallEvent(eventType);
 }
 
 function CurrentInputDeviceCallback(currentInputDevice) {
@@ -121,8 +58,6 @@ function CurrentOutputDeviceCallback(currentOutputDevice) {
 
 function RegisterEventCallBack(state, sipInfo) {
     document.getElementById("status").innerHTML = state;
-    appendEventLog('Register: ' + state);
-    if (window.callLogCapture) callLogCapture.markManual('register', state);
     //exWebClient.setPreferredCodec("opus")
     exWebClient.registerAudioDeviceChangeCallback(function (deviceId) {
         console.log(`demo:audioInputDeviceCallback device changed to ${deviceId}`);
@@ -140,7 +75,7 @@ function RegisterEventCallBack(state, sipInfo) {
 
     // Global notif volumes -> all accounts
     ["ringtone", "ringbacktone", "beeptone", "dtmftone"].forEach(t => {
-      try { exotelSDK.ExotelWebClient.setAudioOutputVolume(t, pct(`slider-${t}`)); } catch {}
+      try { exWebClient.setSoundVolume(t, pct(`slider-${t}`)); } catch {}
     });
 
     // Per-account call volume
@@ -150,58 +85,44 @@ function RegisterEventCallBack(state, sipInfo) {
 
 function SessionCallback(state, sipInfo) {
     console.log('Session state:', state, 'for number...', sipInfo);
-    appendEventLog(`Session: ${state}${sipInfo ? ' (' + sipInfo + ')' : ''}`);
 }
 
 function toggleMuteButton() {
     if (call) {
-        const wasUnmute = document.getElementById("muteButton").innerHTML === "UNMUTE";
         call.MuteToggle();
-        if (wasUnmute) {
+        if (document.getElementById("muteButton").innerHTML === "UNMUTE") {
             document.getElementById("muteButton").innerHTML = "MUTE";
-            if (window.callLogCapture) callLogCapture.markManual('mute', 'UI MUTE');
         } else {
             document.getElementById("muteButton").innerHTML = "UNMUTE";
-            if (window.callLogCapture) callLogCapture.markManual('unmute', 'UI UNMUTE');
         }
     }
 }
 
 function acceptCall() {
-    if (!call) return;
-    const st = document.getElementById('call_status');
-    if (st && String(st.innerHTML).toLowerCase().includes('connected')) {
-        appendEventLog('Accept skipped — call already connected');
-        return;
+    if (call) {
+        call.Answer();
     }
-    if (window.callLogCapture) callLogCapture.markManual('accept_call', '');
-    call.Answer();
 }
 
 function rejectCall() {
     if (call) {
-        if (window.callLogCapture) callLogCapture.markManual('hangup', 'reject');
         call.Hangup();
     }
 }
 
 function toggleHoldButton() {
     if (call) {
-        const wasUnhold = document.getElementById("holdButton").innerHTML === "UNHOLD";
         call.HoldToggle();
-        if (wasUnhold) {
+        if (document.getElementById("holdButton").innerHTML === "UNHOLD") {
             document.getElementById("holdButton").innerHTML = "HOLD";
-            if (window.callLogCapture) callLogCapture.markManual('unhold', 'UI UNHOLD');
         } else {
             document.getElementById("holdButton").innerHTML = "UNHOLD";
-            if (window.callLogCapture) callLogCapture.markManual('hold', 'UI HOLD');
         }
     }
 }
 
 function sendDTMF(digit) {
     if (call) {
-        if (window.callLogCapture) callLogCapture.markManual('dtmf', 'digit ' + digit);
         call.sendDTMF(digit);
     }
 }
@@ -218,12 +139,6 @@ function changeAudioInputDevice() {
 
 function downloadLogs() {
     exWebClient.downloadLogs();
-}
-
-function downloadFullCapture() {
-    if (window.callLogCapture) {
-        callLogCapture.downloadFullCapture();
-    }
 }
 
 // Function to change output device change
@@ -287,9 +202,7 @@ navigator.mediaDevices.addEventListener('devicechange', populateDeviceDropdowns)
 
 window.addEventListener('load', () => {
   initSDK();
-  populateDeviceDropdowns();
-  initVolumeSliders();
-  appendEventLog('Page ready — click Prime Audio or START to unlock tones');
+  populateDeviceDropdowns(); 
 });
 
 // Diagnostics callbacks

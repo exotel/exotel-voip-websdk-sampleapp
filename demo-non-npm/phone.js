@@ -1,12 +1,11 @@
-// Success-criteria SIP account (3.0.12 regression): fe2f6aa4f1f19da524946af2032b1a5t
 phone = '[\
     {\
-        "Username":"vijayk0aa794fd",\
+        "Username":"vijayk83e4b9dd",\
         "DisplayName":"Guru",\
-        "HostServer":"in.voip.exotel.com",\
-        "Domain":"siptrunkingpoc1m.voip.exotel.com",\
+        "HostServer":"voip.qaexotel.com",\
+        "Domain":"exotel41us3.voip.exotel.com",\
         "Port":443,\
-        "Password":"abcd1234",\
+        "Password":"abcd12345",\
         "CallTimeout":1000,\
         "Security": "wss",\
         "EndPoint": "wss",\
