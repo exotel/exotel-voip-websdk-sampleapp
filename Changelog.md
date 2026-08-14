@@ -1,5 +1,8 @@
 Changelog
 
+## v3.0.12 14 August, 2026
+-[VST-1150] Expose websocket close event to consumers.
+
 ## v3.0.11 07 May, 2026
 -[VST-1584]Updated webrtc-core-sdk to v3.0.11 with dtmf tone fix
 
