@@ -1,6 +1,6 @@
 /*!
  * 
- * WebRTC CLient SIP version 3.0.11
+ * WebRTC CLient SIP version 3.0.13
  *
  */
 (function webpackUniversalModuleDefinition(root, factory) {
@@ -6067,6 +6067,7 @@ var ringbacktone = document.createElement("audio");
 ringbacktone.src = __webpack_require__(/*! ./static/ringbacktone.wav */ "../webrtc-core-sdk/src/static/ringbacktone.wav");
 var dtmftone = document.createElement("audio");
 dtmftone.src = __webpack_require__(/*! ./static/dtmf.wav */ "../webrtc-core-sdk/src/static/dtmf.wav");
+const DEFAULT_RINGING_DURATION_SEC = 30;
 class SIPJSPhone {
   static toBeConfigure = true;
   static audioElementNameVsAudioGainNodeMap = {};
@@ -6171,6 +6172,43 @@ class SIPJSPhone {
     this.audioRemote.style.display = 'none';
     document.body.appendChild(this.audioRemote);
     this.callAudioOutputVolume = 1;
+    this.ringingDurationSec = DEFAULT_RINGING_DURATION_SEC;
+  }
+  setRingingDuration(seconds) {
+    if (!seconds || seconds <= 0) {
+      logger.error(`sipjsphone: setRingingDuration: invalid duration ${seconds}`);
+      return false;
+    }
+    this.ringingDurationSec = seconds;
+    if (this.ctxSip) {
+      this._resetRingToneAutoStopTimer();
+    }
+    logger.log(`sipjsphone: setRingingDuration: ${seconds} sec`);
+    return true;
+  }
+  getRingingDuration() {
+    return this.ringingDurationSec ?? DEFAULT_RINGING_DURATION_SEC;
+  }
+  startRingTone() {
+    if (this.ctxSip && typeof this.ctxSip.startRingTone === 'function') {
+      this.ctxSip.startRingTone();
+    }
+  }
+  stopRingTone() {
+    if (this.ctxSip && typeof this.ctxSip.stopRingTone === 'function') {
+      this.ctxSip.stopRingTone();
+    }
+  }
+  _resetRingToneAutoStopTimer() {
+    if (!this.ctxSip || !this.ctxSip.ringToneTimeoutID) {
+      return;
+    }
+    clearTimeout(this.ctxSip.ringToneTimeoutID);
+    this.ctxSip.ringToneTimeoutID = setTimeout(() => {
+      if (this.ctxSip) {
+        this.ctxSip.stopRingTone();
+      }
+    }, this.getRingingDuration() * 1000);
   }
   setCallAudioOutputVolume(value) {
     logger.log(`sipjsphone: setCallAudioOutputVolume: ${value}`);
@@ -6242,30 +6280,27 @@ class SIPJSPhone {
       callActiveID: null,
       callVolume: 1,
       Stream: null,
-      ringToneIntervalID: 0,
-      ringtoneCount: 30,
+      ringToneTimeoutID: 0,
       startRingTone: () => {
         try {
-          var count = 0;
+          this.ctxSip.stopRingTone();
           if (!this.ctxSip.ringtone) {
             this.ctxSip.ringtone = this.ringtone;
           }
-          logger.log('DEBUG: startRingTone called, audio element:', this.ctxSip.ringtone);
-          logger.log('DEBUG: startRingTone src:', this.ctxSip.ringtone.src);
+          logger.log('sipjsphone: startRingTone: durationSec:', this.getRingingDuration());
           this.ctxSip.ringtone.load();
-          this.ctxSip.ringToneIntervalID = setInterval(() => {
-            this.ctxSip.ringtone.play().then(() => {
-              logger.log("DEBUG: startRingTone: Audio is playing...");
-            }).catch(e => {
-              logger.log("DEBUG: startRingTone: Exception:", e);
-            });
-            count++;
-            if (count > this.ctxSip.ringtoneCount) {
-              clearInterval(this.ctxSip.ringToneIntervalID);
-            }
-          }, 500);
+          this.ctxSip.ringtone.loop = true;
+          this.ctxSip.ringtone.play().then(() => {
+            logger.log("sipjsphone: startRingTone: Audio is playing...");
+          }).catch(e => {
+            logger.log("sipjsphone: startRingTone: Exception:", e);
+          });
+          this.ctxSip.ringToneTimeoutID = setTimeout(() => {
+            logger.log('sipjsphone: startRingTone: auto-stop after configured duration');
+            this.ctxSip.stopRingTone();
+          }, this.getRingingDuration() * 1000);
         } catch (e) {
-          logger.log("DEBUG: startRingTone: Exception:", e);
+          logger.log("sipjsphone: startRingTone: Exception:", e);
         }
       },
       stopRingTone: () => {
@@ -6274,8 +6309,11 @@ class SIPJSPhone {
             this.ctxSip.ringtone = this.ringtone;
           }
           this.ctxSip.ringtone.pause();
-          logger.log("sipjsphone: stopRingTone: intervalID:", this.ctxSip.ringToneIntervalID);
-          clearInterval(this.ctxSip.ringToneIntervalID);
+          this.ctxSip.ringtone.currentTime = 0;
+          this.ctxSip.ringtone.loop = false;
+          logger.log("sipjsphone: stopRingTone: timeoutID:", this.ctxSip.ringToneTimeoutID);
+          clearTimeout(this.ctxSip.ringToneTimeoutID);
+          this.ctxSip.ringToneTimeoutID = 0;
         } catch (e) {
           logger.log("sipjsphone: stopRingTone: Exception:", e);
         }
@@ -7649,12 +7687,16 @@ class WebrtcSIPPhone {
 
     // Preserve noise suppression setting from existing phone instance if it exists
     const existingNoiseSuppression = this.phone?.enableNoiseSuppression;
+    const existingRingingDuration = this.phone?.ringingDurationSec;
     switch (engine) {
       case "sipjs":
         this.phone = new _sipjsphone__WEBPACK_IMPORTED_MODULE_1__["default"](this.webrtcSIPPhoneEventDelegate, this.username);
         // Restore noise suppression setting if it was set on the previous instance
         if (existingNoiseSuppression) {
           this.phone.setNoiseSuppression(existingNoiseSuppression);
+        }
+        if (existingRingingDuration) {
+          this.phone.setRingingDuration(existingRingingDuration);
         }
         break;
       default:
@@ -7859,6 +7901,22 @@ class WebrtcSIPPhone {
   setNoiseSuppression(enabled = false) {
     logger.log("webrtcSIPPhone: setNoiseSuppression: ", enabled);
     this.phone.setNoiseSuppression(enabled);
+  }
+  setRingingDuration(seconds) {
+    logger.log("webrtcSIPPhone: setRingingDuration: ", seconds);
+    return this.phone.setRingingDuration(seconds);
+  }
+  getRingingDuration() {
+    logger.log("webrtcSIPPhone: getRingingDuration");
+    return this.phone.getRingingDuration();
+  }
+  startRingTone() {
+    logger.log("webrtcSIPPhone: startRingTone");
+    this.phone.startRingTone();
+  }
+  stopRingTone() {
+    logger.log("webrtcSIPPhone: stopRingTone");
+    this.phone.stopRingTone();
   }
 }
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (WebrtcSIPPhone);
@@ -9997,6 +10055,38 @@ class ExotelWebClient {
   setNoiseSuppression(enabled = false) {
     logger.log(`ExWebClient: setNoiseSuppression: ${enabled}`);
     this.webrtcSIPPhone.setNoiseSuppression(enabled);
+  }
+  setRingingDuration(seconds) {
+    logger.log(`ExWebClient: setRingingDuration: ${seconds}`);
+    if (!this.webrtcSIPPhone) {
+      logger.warn("ExWebClient: setRingingDuration: webrtcSIPPhone not initialized");
+      return false;
+    }
+    return this.webrtcSIPPhone.setRingingDuration(seconds);
+  }
+  getRingingDuration() {
+    logger.log("ExWebClient: getRingingDuration");
+    if (!this.webrtcSIPPhone) {
+      logger.warn("ExWebClient: getRingingDuration: webrtcSIPPhone not initialized");
+      return 30;
+    }
+    return this.webrtcSIPPhone.getRingingDuration();
+  }
+  startRingTone() {
+    logger.log("ExWebClient: startRingTone");
+    if (!this.webrtcSIPPhone) {
+      logger.warn("ExWebClient: startRingTone: webrtcSIPPhone not initialized");
+      return;
+    }
+    this.webrtcSIPPhone.startRingTone();
+  }
+  stopRingTone() {
+    logger.log("ExWebClient: stopRingTone");
+    if (!this.webrtcSIPPhone) {
+      logger.warn("ExWebClient: stopRingTone: webrtcSIPPhone not initialized");
+      return;
+    }
+    this.webrtcSIPPhone.stopRingTone();
   }
 }
 logger.registerLoggerCallback((type, message, args) => {

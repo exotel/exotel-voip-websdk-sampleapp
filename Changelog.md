@@ -1,5 +1,9 @@
 Changelog
 
+## v3.0.13 14 August, 2026
+-[VST-1782] Expose setRingingDuration, getRingingDuration on ExotelWebClient (default ring 30 sec)
+-[VST-2016] Expose startRingTone and stopRingTone on ExotelWebClient
+
 ## v3.0.12 14 August, 2026
 -[VST-1150] Expose websocket close event to consumers.
 
