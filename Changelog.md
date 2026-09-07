@@ -1,12 +1,12 @@
 Changelog
 
-## v3.0.13 14 August, 2026
+## v3.0.14 08 September, 2026
 -[VST-1782] Expose setRingingDuration, getRingingDuration on ExotelWebClient (default ring 30 sec)
 -[VST-2016] Expose startRingTone and stopRingTone on ExotelWebClient
 -[VST-2016] Expose setRingToneAutoStart, getRingToneAutoStart on ExotelWebClient; enabled by default. When disabled, the SDK does not auto-play the ring tone on an incoming session, so an app can gate ringing on push/SIP sync and call startRingTone() itself. An explicit startRingTone() is never blocked
 -BEHAVIOUR CHANGE: registerLoggerCallback now receives the real severity ("log", "info", "warn", "error"); it previously received "log" for every message
 -BEHAVIOUR CHANGE: default ring duration is 30 sec, up from the previous hardcoded ~15 sec cap
--Sample app: bundled SDK (demo-non-npm/dist, demo-non-npm/SDK/exotelsdk-3.0.13.tar.gz) rebuilt from client-sdk v3.0.13 / core-sdk v3.0.12; demo-npm pinned to webrtc-client-sdk ^3.0.13
+-Sample app: bundled SDK (demo-non-npm/dist, demo-non-npm/SDK/exotelsdk-3.0.14.tar.gz) rebuilt from client-sdk v3.0.14 / core-sdk v3.0.12; demo-npm pinned to webrtc-client-sdk ^3.0.14
 
 ## v3.0.12 14 August, 2026
 -[VST-1150] Expose websocket close event to consumers.

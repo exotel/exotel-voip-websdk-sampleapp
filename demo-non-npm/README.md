@@ -56,13 +56,13 @@ This demonstration are build on simple html which provides some basic functional
 <script type="text/javascript" src="./dist/exotelsdk.js"></script>
 ```
 
-The bundle in `dist/` is built from client-sdk v3.0.13 / core-sdk v3.0.12 and exposes the
-`exotelSDK` global. `SDK/exotelsdk-3.0.13.tar.gz` is the same build packaged for distribution —
+The bundle in `dist/` is built from client-sdk v3.0.14 / core-sdk v3.0.12 and exposes the
+`exotelSDK` global. `SDK/exotelsdk-3.0.14.tar.gz` is the same build packaged for distribution —
 extract it over `dist/` to refresh the bundle. Keep the `.wav` files that ship alongside
 `exotelsdk.js`: the bundle loads `ringtone.wav`, `ringbacktone.wav`, `beep.wav` and `dtmf.wav`
 by name, relative to itself, so removing them leaves the demo silent.
 
-# Ring tone APIs (SDK v3.0.13)
+# Ring tone APIs (SDK v3.0.14)
 
 The bundled SDK exposes the incoming ring tone to the application.
 
@@ -118,6 +118,7 @@ function CallListenerCallback(callObj, eventType, phone) {
     if (isCallConfirmedByPush(callObj)) {
       exWebClient.startRingTone();
     }
+  }
 }
 ```
 
@@ -144,10 +145,10 @@ retries every 500 ms until the ring starts or the ring is stopped, so an incomin
 arrives before any interaction still rings once the page becomes eligible. Interacting with the
 demo page once (for example clicking **Register**) is enough to avoid the delay.
 
-# Logger callback severity (behaviour change in v3.0.13)
+# Logger callback severity (behaviour change in v3.0.14)
 
 `registerLoggerCallback` now receives the real severity as its first argument — `"log"`,
-`"info"`, `"warn"` or `"error"`. Before v3.0.13 every message arrived as `"log"`, so an
+`"info"`, `"warn"` or `"error"`. Before v3.0.14 every message arrived as `"log"`, so an
 integrator could not tell an SDK error from an ordinary log line.
 
 `common.js` in this demo already switches on that argument, so `warn` and `error` now route to

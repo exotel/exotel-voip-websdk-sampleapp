@@ -10,9 +10,9 @@ File: Exotel-Voice-Websdk-Bundled-Integration-Guide.pdf
 # Exotel Voice WebSDK API documentation
 File: Exotel-Voice-Websdk-Bundled-Integration-Guide.pdf
 
-# Ring tone APIs (SDK v3.0.13)
+# Ring tone APIs (SDK v3.0.14)
 
-This demo depends on `@exotel-npm-dev/webrtc-client-sdk` `^3.0.13`, which exposes the
+This demo depends on `@exotel-npm-dev/webrtc-client-sdk` `^3.0.14`, which exposes the
 incoming ring tone to the application. Install/refresh dependencies before trying these:
 
 ```
@@ -87,10 +87,10 @@ per account. In a multi-account setup, `setRingingDuration` / `setRingToneAutoSt
 `ExotelWebClient` applies to every account in the page, and one `stopRingTone()` stops the
 single shared ring.
 
-# Logger callback severity (behaviour change in v3.0.13)
+# Logger callback severity (behaviour change in v3.0.14)
 
 `registerLoggerCallback` now receives the real severity as its first argument — `"log"`,
-`"info"`, `"warn"` or `"error"`. Before v3.0.13 every message arrived as `"log"`, so an
+`"info"`, `"warn"` or `"error"`. Before v3.0.14 every message arrived as `"log"`, so an
 integrator could not tell an SDK error from an ordinary log line. If your callback switches on
 that argument, `warn` and `error` will start routing to their own branches:
 
