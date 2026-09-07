@@ -1,6 +1,6 @@
 /*!
  * 
- * WebRTC CLient SIP version 3.0.11
+ * WebRTC CLient SIP version 3.0.14
  *
  */
 (function webpackUniversalModuleDefinition(root, factory) {
@@ -20899,6 +20899,128 @@ ringbacktone.src = __webpack_require__(/*! ./static/ringbacktone.wav */ "./node_
 var dtmftone = document.createElement("audio");
 dtmftone.src = __webpack_require__(/*! ./static/dtmf.wav */ "./node_modules/@exotel-npm-dev/webrtc-core-sdk/src/static/dtmf.wav");
 
+const DEFAULT_RINGING_DURATION_SEC = 30;
+const RING_TONE_PLAY_RETRY_MS = 500;
+
+// The ringtone element above is shared by every SIPJSPhone instance, so the
+// ring state is global too: one element, one ring, one configured duration.
+let ringingDurationSec = DEFAULT_RINGING_DURATION_SEC;
+let ringToneTimeoutID = 0;
+let ringTonePlayRetryID = 0;
+let ringToneStartedAt = 0;
+
+// Whether the SDK starts the ring tone by itself on an incoming session.
+// Enabled by default, so integrators that never touch this keep the existing
+// behaviour. An app that gates ringing on its own state -- e.g. waiting for
+// push and SIP to agree on the same AppServer call -- turns this off and
+// calls startRingTone() when it is ready. It never blocks an explicit
+// startRingTone(); it governs only the automatic start.
+let ringToneAutoStart = true;
+
+// Retries play() until it succeeds or the ring is stopped. The ring tone used
+// to be driven by a 500ms setInterval, which retried play() ~30 times as a
+// side effect; looping the audio element replaced that with a single attempt.
+// A first play() can still be rejected by the browser autoplay policy (no user
+// gesture yet) or a transient media error, and one attempt would leave the
+// agent with a completely silent incoming call. An armed ringToneTimeoutID is
+// what marks the ring as active, so it doubles as the retry's stop condition.
+function ringTonePlay() {
+	if (!ringToneTimeoutID) {
+		return;
+	}
+	ringtone.play()
+		.then(() => {
+			logger.log("sipjsphone: playRingTone: audio is playing");
+		})
+		.catch(e => {
+			logger.warn(`sipjsphone: playRingTone: play failed, retrying in ${RING_TONE_PLAY_RETRY_MS}ms:`, e);
+			if (ringToneTimeoutID) {
+				ringTonePlayRetryID = setTimeout(ringTonePlay, RING_TONE_PLAY_RETRY_MS);
+			}
+		});
+}
+
+function ringToneStart() {
+	try {
+		ringToneStop();
+		logger.log("sipjsphone: startRingTone: durationSec:", ringingDurationSec);
+		ringToneStartedAt = Date.now();
+		ringtone.load();
+		ringtone.loop = true;
+		ringToneTimeoutID = setTimeout(() => {
+			logger.log("sipjsphone: startRingTone: auto-stop after configured duration");
+			ringToneStop();
+		}, ringingDurationSec * 1000);
+		ringTonePlay();
+	} catch (e) {
+		logger.error("sipjsphone: startRingTone: Exception:", e);
+	}
+}
+
+function ringToneStop() {
+	try {
+		if (!ringToneTimeoutID) {
+			return;
+		}
+		logger.log("sipjsphone: stopRingTone: timeoutID:", ringToneTimeoutID);
+		clearTimeout(ringToneTimeoutID);
+		ringToneTimeoutID = 0;
+		clearTimeout(ringTonePlayRetryID);
+		ringTonePlayRetryID = 0;
+		ringtone.loop = false;
+		ringtone.pause();
+		ringtone.currentTime = 0;
+	} catch (e) {
+		logger.error("sipjsphone: stopRingTone: Exception:", e);
+	}
+}
+
+function ringToneSetAutoStart(enabled) {
+	// Booleans, and the strings a config layer would supply. Boolean(seconds)
+	// is deliberately not used: Boolean("false") is true, which would turn the
+	// gate on when the config plainly said to turn it off.
+	let flag;
+	if (typeof enabled === 'boolean') {
+		flag = enabled;
+	} else if (typeof enabled === 'string' && /^\s*(true|false)\s*$/i.test(enabled)) {
+		flag = enabled.trim().toLowerCase() === 'true';
+	} else {
+		logger.error(`sipjsphone: setRingToneAutoStart: invalid value ${enabled}`);
+		return false;
+	}
+	ringToneAutoStart = flag;
+	logger.log(`sipjsphone: setRingToneAutoStart: ${flag}`);
+	return true;
+}
+
+function ringToneSetDuration(seconds) {
+	// Numbers and numeric strings only: ring duration usually arrives from a
+	// contact-center config (Nodeflow, campaign settings) where numbers are
+	// commonly strings, so strings are coerced. Everything else is refused
+	// outright -- Number() would turn true into 1 and [5] into 5. Number()
+	// rejects "", null, undefined and non-numeric strings as NaN/0, which
+	// the guard below catches.
+	const duration = (typeof seconds === 'number' || typeof seconds === 'string') ? Number(seconds) : NaN;
+	if (!Number.isFinite(duration) || duration <= 0) {
+		logger.error(`sipjsphone: setRingingDuration: invalid duration ${seconds}`);
+		return false;
+	}
+	ringingDurationSec = duration;
+	logger.log(`sipjsphone: setRingingDuration: ${duration} sec`);
+	if (ringToneTimeoutID) {
+		// Reschedule against the time already spent ringing, so changing the
+		// duration mid-ring cannot extend the ring past the configured total.
+		clearTimeout(ringToneTimeoutID);
+		const remainingMs = duration * 1000 - (Date.now() - ringToneStartedAt);
+		if (remainingMs <= 0) {
+			ringToneStop();
+		} else {
+			ringToneTimeoutID = setTimeout(ringToneStop, remainingMs);
+		}
+	}
+	return true;
+}
+
 class SIPJSPhone {
 
 	static toBeConfigure = true;
@@ -21008,9 +21130,32 @@ class SIPJSPhone {
 		this.audioRemote.style.display = 'none';
 		document.body.appendChild(this.audioRemote);		
 		this.callAudioOutputVolume = 1;
-		
+
 	}
 
+	setRingingDuration(seconds) {
+		return ringToneSetDuration(seconds);
+	}
+
+	getRingingDuration() {
+		return ringingDurationSec;
+	}
+
+	setRingToneAutoStart(enabled) {
+		return ringToneSetAutoStart(enabled);
+	}
+
+	getRingToneAutoStart() {
+		return ringToneAutoStart;
+	}
+
+	startRingTone() {
+		ringToneStart();
+	}
+
+	stopRingTone() {
+		ringToneStop();
+	}
 
 	setCallAudioOutputVolume(value) {
 		logger.log(`sipjsphone: setCallAudioOutputVolume: ${value}`);
@@ -21095,47 +21240,6 @@ class SIPJSPhone {
 		callActiveID: null,
 		callVolume: 1,
 		Stream: null,
-		ringToneIntervalID: 0,
-		ringtoneCount: 30,
-
-			startRingTone: () => {
-			try {
-				var count = 0;
-				if (!this.ctxSip.ringtone) {
-					this.ctxSip.ringtone = this.ringtone;
-				}
-				logger.log('DEBUG: startRingTone called, audio element:', this.ctxSip.ringtone);
-				logger.log('DEBUG: startRingTone src:', this.ctxSip.ringtone.src);
-				this.ctxSip.ringtone.load();
-				this.ctxSip.ringToneIntervalID = setInterval(() => {
-					this.ctxSip.ringtone.play()
-						.then(() => {
-							logger.log("DEBUG: startRingTone: Audio is playing...");
-						})
-						.catch(e => {
-							logger.log("DEBUG: startRingTone: Exception:", e);
-						});
-					count++;
-					if (count > this.ctxSip.ringtoneCount) {
-						clearInterval(this.ctxSip.ringToneIntervalID);
-					}
-					}, 500);
-				} catch (e) {
-					logger.log("DEBUG: startRingTone: Exception:", e);
-				}
-			},
-
-			stopRingTone: () => {
-				try {
-
-					if (!this.ctxSip.ringtone) {
-						this.ctxSip.ringtone = this.ringtone;
-					}
-					this.ctxSip.ringtone.pause();
-					logger.log("sipjsphone: stopRingTone: intervalID:", this.ctxSip.ringToneIntervalID);
-					clearInterval(this.ctxSip.ringToneIntervalID)
-			} catch (e) { logger.log("sipjsphone: stopRingTone: Exception:", e); }
-		},
 
 			// Update the startRingbackTone method (around line 223) to use Web Audio:
 			startRingbackTone: () => {
@@ -21231,7 +21335,11 @@ class SIPJSPhone {
 					logger.log('DEBUG: Incoming call detected, about to start ring tone');
 					this.webrtcSIPPhoneEventDelegate.onCallStatSipJsSessionEvent('incoming');
 				status = "Incoming: " + newSess.displayName;
-					this.ctxSip.startRingTone();
+					if (ringToneAutoStart) {
+						ringToneStart();
+					} else {
+						logger.log('sipjsphone: incoming: auto ring tone suppressed, ringtone disabled');
+					}
 				//sip call method was invoking after 500 ms because of race between server push and 
 				//webrtc websocket autoanswer
 					setTimeout(() => this.sipCall(), 500);
@@ -22405,7 +22513,12 @@ destroySocketConnection() {
 		try {
 			for (i = 0; i < additionalAudioElements.length; i++) {
 				elem = additionalAudioElements[i];
-				elem.load();
+				// load() aborts playback; an element that is already playing
+				// (a live ring tone) only needs its sink switched, which works
+				// during playback.
+				if (elem.paused) {
+					elem.load();
+				}
 				elem.setSinkId(deviceId);
 			}
 		} catch (e) {
@@ -22463,7 +22576,7 @@ destroySocketConnection() {
 	uiCallTerminated(s_description) {
 		if (window.btnBFCP)
 			window.btnBFCP.disabled = true;
-		this.ctxSip.stopRingTone();
+		ringToneStop();
 		this.ctxSip.stopRingbackTone();
 		if (this.callBackHandler && this.callBackHandler.onResponse)
 			this.callBackHandler.onResponse("disconnected");
@@ -22498,7 +22611,7 @@ destroySocketConnection() {
 			this.ctxSip.phoneHoldButtonPressed(this.ctxSip.callActiveID);
 		}
 		this.ctxSip.stopRingbackTone();
-		this.ctxSip.stopRingTone();
+		ringToneStop();
 		this.ctxSip.setCallSessionStatus('Answered');
 		this.ctxSip.logCall(newSess, 'answered');
 		this.ctxSip.callActiveID = newSess.ctxid;
@@ -22513,7 +22626,7 @@ destroySocketConnection() {
 			this.webrtcSIPPhoneEventDelegate.stopCallStat();
 			this.webrtcSIPPhoneEventDelegate.onCallStatSipJsSessionEvent('terminated');
 		}
-		this.ctxSip.stopRingTone();
+		ringToneStop();
 		this.ctxSip.stopRingbackTone();
 		this.ctxSip.setCallSessionStatus("");
 		this.ctxSip.callActiveID = null;
@@ -22746,7 +22859,9 @@ class WebrtcSIPPhone {
 		
 		// Preserve noise suppression setting from existing phone instance if it exists
 		const existingNoiseSuppression = this.phone?.enableNoiseSuppression;
-		
+		// The ringing duration is module-level state in sipjsphone, so it
+		// survives a new phone instance on its own.
+
 		switch (engine) {
 			case "sipjs":
 				this.phone = new _sipjsphone__WEBPACK_IMPORTED_MODULE_1__["default"](
@@ -23004,6 +23119,36 @@ class WebrtcSIPPhone {
         logger.log("webrtcSIPPhone: setNoiseSuppression: ", enabled);
         this.phone.setNoiseSuppression(enabled);
     }
+
+	setRingingDuration(seconds) {
+		logger.log("webrtcSIPPhone: setRingingDuration: ", seconds);
+		return this.phone.setRingingDuration(seconds);
+	}
+
+	getRingingDuration() {
+		logger.log("webrtcSIPPhone: getRingingDuration");
+		return this.phone.getRingingDuration();
+	}
+
+	setRingToneAutoStart(enabled) {
+		logger.log("webrtcSIPPhone: setRingToneAutoStart: ", enabled);
+		return this.phone.setRingToneAutoStart(enabled);
+	}
+
+	getRingToneAutoStart() {
+		logger.log("webrtcSIPPhone: getRingToneAutoStart");
+		return this.phone.getRingToneAutoStart();
+	}
+
+	startRingTone() {
+		logger.log("webrtcSIPPhone: startRingTone");
+		this.phone.startRingTone();
+	}
+
+	stopRingTone() {
+		logger.log("webrtcSIPPhone: stopRingTone");
+		this.phone.stopRingTone();
+	}
 }
 
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (WebrtcSIPPhone);
@@ -25346,11 +25491,62 @@ class ExotelWebClient {
     logger.log(`ExWebClient: setNoiseSuppression: ${enabled}`);
     this.webrtcSIPPhone.setNoiseSuppression(enabled);
   }
+  setRingingDuration(seconds) {
+    logger.log(`ExWebClient: setRingingDuration: ${seconds}`);
+    if (!this.webrtcSIPPhone) {
+      logger.warn("ExWebClient: setRingingDuration: webrtcSIPPhone not initialized");
+      return false;
+    }
+    return this.webrtcSIPPhone.setRingingDuration(seconds);
+  }
+  getRingingDuration() {
+    logger.log("ExWebClient: getRingingDuration");
+    if (!this.webrtcSIPPhone) {
+      logger.warn("ExWebClient: getRingingDuration: webrtcSIPPhone not initialized");
+      return 30;
+    }
+    return this.webrtcSIPPhone.getRingingDuration();
+  }
+  setRingToneAutoStart(enabled) {
+    logger.log(`ExWebClient: setRingToneAutoStart: ${enabled}`);
+    if (!this.webrtcSIPPhone) {
+      logger.warn("ExWebClient: setRingToneAutoStart: webrtcSIPPhone not initialized");
+      return false;
+    }
+    return this.webrtcSIPPhone.setRingToneAutoStart(enabled);
+  }
+  getRingToneAutoStart() {
+    logger.log("ExWebClient: getRingToneAutoStart");
+    if (!this.webrtcSIPPhone) {
+      logger.warn("ExWebClient: getRingToneAutoStart: webrtcSIPPhone not initialized");
+      return true;
+    }
+    return this.webrtcSIPPhone.getRingToneAutoStart();
+  }
+  startRingTone() {
+    logger.log("ExWebClient: startRingTone");
+    if (!this.webrtcSIPPhone) {
+      logger.warn("ExWebClient: startRingTone: webrtcSIPPhone not initialized");
+      return;
+    }
+    this.webrtcSIPPhone.startRingTone();
+  }
+  stopRingTone() {
+    logger.log("ExWebClient: stopRingTone");
+    if (!this.webrtcSIPPhone) {
+      logger.warn("ExWebClient: stopRingTone: webrtcSIPPhone not initialized");
+      return;
+    }
+    this.webrtcSIPPhone.stopRingTone();
+  }
 }
 logger.registerLoggerCallback((type, message, args) => {
   _api_LogManager_js__WEBPACK_IMPORTED_MODULE_10__["default"].onLog(type, message, args);
   if (ExotelWebClient.clientSDKLoggerCallback) {
-    ExotelWebClient.clientSDKLoggerCallback("log", message, args);
+    // Forward the real severity. This used to be hardcoded to "log", which
+    // meant an integrator's callback could not tell an SDK error from an
+    // ordinary log line and so could not filter or alert on failures.
+    ExotelWebClient.clientSDKLoggerCallback(type, message, args);
   }
 });
 
