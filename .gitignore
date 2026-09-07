@@ -3,3 +3,14 @@ node_modules
 
 # Generated documentation (see tools/generate-pdf.sh)
 build/
+
+# Local SIP credentials -- never commit. This repo is public.
+# demo-npm/src/phone.json is the committed placeholder template; copy it locally instead.
+demo-non-npm/phone copy.js
+demo-non-npm/phone-qa.js
+demo-non-npm/phone-prod.js
+demo-non-npm/phone.local.js
+demo-non-npm/lptest
+
+# Local build backups
+demo-non-npm/dist.bak-*

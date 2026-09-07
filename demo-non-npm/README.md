@@ -103,7 +103,16 @@ Linux is not applicable.
 
 ### 5.1 Configure the SIP account
 
-An Exotel SIP account is required. It is configured in `phone.js`:
+An Exotel SIP account is required. `phone.js` is a committed **placeholder** — this is a public
+repository, so do not put real credentials in it. Copy it to `phone.local.js` and fill in your
+values there. `phone.local.js` is gitignored, and `index.html` loads it after `phone.js`, so it
+takes precedence:
+
+```shell
+cp phone.js phone.local.js   # then edit phone.local.js
+```
+
+The config shape, in either file:
 
 ```js
 phone = '[
