@@ -1,2 +1,5 @@
 node_modules
 .DS_Store
+
+# Generated documentation (see tools/generate-pdf.sh)
+build/
