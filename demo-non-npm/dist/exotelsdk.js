@@ -1,6 +1,6 @@
 /*!
  * 
- * WebRTC CLient SIP version 3.0.13
+ * WebRTC CLient SIP version 3.0.14
  *
  */
 (function webpackUniversalModuleDefinition(root, factory) {
@@ -6068,6 +6068,120 @@ ringbacktone.src = __webpack_require__(/*! ./static/ringbacktone.wav */ "../webr
 var dtmftone = document.createElement("audio");
 dtmftone.src = __webpack_require__(/*! ./static/dtmf.wav */ "../webrtc-core-sdk/src/static/dtmf.wav");
 const DEFAULT_RINGING_DURATION_SEC = 30;
+const RING_TONE_PLAY_RETRY_MS = 500;
+
+// The ringtone element above is shared by every SIPJSPhone instance, so the
+// ring state is global too: one element, one ring, one configured duration.
+let ringingDurationSec = DEFAULT_RINGING_DURATION_SEC;
+let ringToneTimeoutID = 0;
+let ringTonePlayRetryID = 0;
+let ringToneStartedAt = 0;
+
+// Whether the SDK starts the ring tone by itself on an incoming session.
+// Enabled by default, so integrators that never touch this keep the existing
+// behaviour. An app that gates ringing on its own state -- e.g. waiting for
+// push and SIP to agree on the same AppServer call -- turns this off and
+// calls startRingTone() when it is ready. It never blocks an explicit
+// startRingTone(); it governs only the automatic start.
+let ringToneAutoStart = true;
+
+// Retries play() until it succeeds or the ring is stopped. The ring tone used
+// to be driven by a 500ms setInterval, which retried play() ~30 times as a
+// side effect; looping the audio element replaced that with a single attempt.
+// A first play() can still be rejected by the browser autoplay policy (no user
+// gesture yet) or a transient media error, and one attempt would leave the
+// agent with a completely silent incoming call. An armed ringToneTimeoutID is
+// what marks the ring as active, so it doubles as the retry's stop condition.
+function ringTonePlay() {
+  if (!ringToneTimeoutID) {
+    return;
+  }
+  ringtone.play().then(() => {
+    logger.log("sipjsphone: playRingTone: audio is playing");
+  }).catch(e => {
+    logger.warn(`sipjsphone: playRingTone: play failed, retrying in ${RING_TONE_PLAY_RETRY_MS}ms:`, e);
+    if (ringToneTimeoutID) {
+      ringTonePlayRetryID = setTimeout(ringTonePlay, RING_TONE_PLAY_RETRY_MS);
+    }
+  });
+}
+function ringToneStart() {
+  try {
+    ringToneStop();
+    logger.log("sipjsphone: startRingTone: durationSec:", ringingDurationSec);
+    ringToneStartedAt = Date.now();
+    ringtone.load();
+    ringtone.loop = true;
+    ringToneTimeoutID = setTimeout(() => {
+      logger.log("sipjsphone: startRingTone: auto-stop after configured duration");
+      ringToneStop();
+    }, ringingDurationSec * 1000);
+    ringTonePlay();
+  } catch (e) {
+    logger.error("sipjsphone: startRingTone: Exception:", e);
+  }
+}
+function ringToneStop() {
+  try {
+    if (!ringToneTimeoutID) {
+      return;
+    }
+    logger.log("sipjsphone: stopRingTone: timeoutID:", ringToneTimeoutID);
+    clearTimeout(ringToneTimeoutID);
+    ringToneTimeoutID = 0;
+    clearTimeout(ringTonePlayRetryID);
+    ringTonePlayRetryID = 0;
+    ringtone.loop = false;
+    ringtone.pause();
+    ringtone.currentTime = 0;
+  } catch (e) {
+    logger.error("sipjsphone: stopRingTone: Exception:", e);
+  }
+}
+function ringToneSetAutoStart(enabled) {
+  // Booleans, and the strings a config layer would supply. Boolean(seconds)
+  // is deliberately not used: Boolean("false") is true, which would turn the
+  // gate on when the config plainly said to turn it off.
+  let flag;
+  if (typeof enabled === 'boolean') {
+    flag = enabled;
+  } else if (typeof enabled === 'string' && /^\s*(true|false)\s*$/i.test(enabled)) {
+    flag = enabled.trim().toLowerCase() === 'true';
+  } else {
+    logger.error(`sipjsphone: setRingToneAutoStart: invalid value ${enabled}`);
+    return false;
+  }
+  ringToneAutoStart = flag;
+  logger.log(`sipjsphone: setRingToneAutoStart: ${flag}`);
+  return true;
+}
+function ringToneSetDuration(seconds) {
+  // Numbers and numeric strings only: ring duration usually arrives from a
+  // contact-center config (Nodeflow, campaign settings) where numbers are
+  // commonly strings, so strings are coerced. Everything else is refused
+  // outright -- Number() would turn true into 1 and [5] into 5. Number()
+  // rejects "", null, undefined and non-numeric strings as NaN/0, which
+  // the guard below catches.
+  const duration = typeof seconds === 'number' || typeof seconds === 'string' ? Number(seconds) : NaN;
+  if (!Number.isFinite(duration) || duration <= 0) {
+    logger.error(`sipjsphone: setRingingDuration: invalid duration ${seconds}`);
+    return false;
+  }
+  ringingDurationSec = duration;
+  logger.log(`sipjsphone: setRingingDuration: ${duration} sec`);
+  if (ringToneTimeoutID) {
+    // Reschedule against the time already spent ringing, so changing the
+    // duration mid-ring cannot extend the ring past the configured total.
+    clearTimeout(ringToneTimeoutID);
+    const remainingMs = duration * 1000 - (Date.now() - ringToneStartedAt);
+    if (remainingMs <= 0) {
+      ringToneStop();
+    } else {
+      ringToneTimeoutID = setTimeout(ringToneStop, remainingMs);
+    }
+  }
+  return true;
+}
 class SIPJSPhone {
   static toBeConfigure = true;
   static audioElementNameVsAudioGainNodeMap = {};
@@ -6172,43 +6286,24 @@ class SIPJSPhone {
     this.audioRemote.style.display = 'none';
     document.body.appendChild(this.audioRemote);
     this.callAudioOutputVolume = 1;
-    this.ringingDurationSec = DEFAULT_RINGING_DURATION_SEC;
   }
   setRingingDuration(seconds) {
-    if (!seconds || seconds <= 0) {
-      logger.error(`sipjsphone: setRingingDuration: invalid duration ${seconds}`);
-      return false;
-    }
-    this.ringingDurationSec = seconds;
-    if (this.ctxSip) {
-      this._resetRingToneAutoStopTimer();
-    }
-    logger.log(`sipjsphone: setRingingDuration: ${seconds} sec`);
-    return true;
+    return ringToneSetDuration(seconds);
   }
   getRingingDuration() {
-    return this.ringingDurationSec ?? DEFAULT_RINGING_DURATION_SEC;
+    return ringingDurationSec;
+  }
+  setRingToneAutoStart(enabled) {
+    return ringToneSetAutoStart(enabled);
+  }
+  getRingToneAutoStart() {
+    return ringToneAutoStart;
   }
   startRingTone() {
-    if (this.ctxSip && typeof this.ctxSip.startRingTone === 'function') {
-      this.ctxSip.startRingTone();
-    }
+    ringToneStart();
   }
   stopRingTone() {
-    if (this.ctxSip && typeof this.ctxSip.stopRingTone === 'function') {
-      this.ctxSip.stopRingTone();
-    }
-  }
-  _resetRingToneAutoStopTimer() {
-    if (!this.ctxSip || !this.ctxSip.ringToneTimeoutID) {
-      return;
-    }
-    clearTimeout(this.ctxSip.ringToneTimeoutID);
-    this.ctxSip.ringToneTimeoutID = setTimeout(() => {
-      if (this.ctxSip) {
-        this.ctxSip.stopRingTone();
-      }
-    }, this.getRingingDuration() * 1000);
+    ringToneStop();
   }
   setCallAudioOutputVolume(value) {
     logger.log(`sipjsphone: setCallAudioOutputVolume: ${value}`);
@@ -6280,44 +6375,6 @@ class SIPJSPhone {
       callActiveID: null,
       callVolume: 1,
       Stream: null,
-      ringToneTimeoutID: 0,
-      startRingTone: () => {
-        try {
-          this.ctxSip.stopRingTone();
-          if (!this.ctxSip.ringtone) {
-            this.ctxSip.ringtone = this.ringtone;
-          }
-          logger.log('sipjsphone: startRingTone: durationSec:', this.getRingingDuration());
-          this.ctxSip.ringtone.load();
-          this.ctxSip.ringtone.loop = true;
-          this.ctxSip.ringtone.play().then(() => {
-            logger.log("sipjsphone: startRingTone: Audio is playing...");
-          }).catch(e => {
-            logger.log("sipjsphone: startRingTone: Exception:", e);
-          });
-          this.ctxSip.ringToneTimeoutID = setTimeout(() => {
-            logger.log('sipjsphone: startRingTone: auto-stop after configured duration');
-            this.ctxSip.stopRingTone();
-          }, this.getRingingDuration() * 1000);
-        } catch (e) {
-          logger.log("sipjsphone: startRingTone: Exception:", e);
-        }
-      },
-      stopRingTone: () => {
-        try {
-          if (!this.ctxSip.ringtone) {
-            this.ctxSip.ringtone = this.ringtone;
-          }
-          this.ctxSip.ringtone.pause();
-          this.ctxSip.ringtone.currentTime = 0;
-          this.ctxSip.ringtone.loop = false;
-          logger.log("sipjsphone: stopRingTone: timeoutID:", this.ctxSip.ringToneTimeoutID);
-          clearTimeout(this.ctxSip.ringToneTimeoutID);
-          this.ctxSip.ringToneTimeoutID = 0;
-        } catch (e) {
-          logger.log("sipjsphone: stopRingTone: Exception:", e);
-        }
-      },
       // Update the startRingbackTone method (around line 223) to use Web Audio:
       startRingbackTone: () => {
         if (!this.ctxSip.ringbacktone) {
@@ -6401,7 +6458,11 @@ class SIPJSPhone {
           logger.log('DEBUG: Incoming call detected, about to start ring tone');
           this.webrtcSIPPhoneEventDelegate.onCallStatSipJsSessionEvent('incoming');
           status = "Incoming: " + newSess.displayName;
-          this.ctxSip.startRingTone();
+          if (ringToneAutoStart) {
+            ringToneStart();
+          } else {
+            logger.log('sipjsphone: incoming: auto ring tone suppressed, ringtone disabled');
+          }
           //sip call method was invoking after 500 ms because of race between server push and 
           //webrtc websocket autoanswer
           setTimeout(() => this.sipCall(), 500);
@@ -6705,23 +6766,6 @@ class SIPJSPhone {
               incomingSession.reject({
                 statusCode: 486
               });
-            }
-          },
-          onDisconnect: error => {
-            logger.log("sipjsphone: onDisconnect: called", error);
-            let errorEvent = {
-              message: "",
-              code: ""
-            };
-            if (error) {
-              const match = error.message.match(/code:\s*(\d+)/);
-              if (match) {
-                errorEvent.code = match[1];
-                errorEvent.message = error.message;
-              }
-            }
-            if (this.webrtcSIPPhoneEventDelegate && typeof this.webrtcSIPPhoneEventDelegate.onWebSocketDisconnect === 'function') {
-              this.webrtcSIPPhoneEventDelegate.onWebSocketDisconnect(errorEvent);
             }
           }
         }
@@ -7421,7 +7465,12 @@ class SIPJSPhone {
     try {
       for (i = 0; i < additionalAudioElements.length; i++) {
         elem = additionalAudioElements[i];
-        elem.load();
+        // load() aborts playback; an element that is already playing
+        // (a live ring tone) only needs its sink switched, which works
+        // during playback.
+        if (elem.paused) {
+          elem.load();
+        }
         elem.setSinkId(deviceId);
       }
     } catch (e) {
@@ -7475,7 +7524,7 @@ class SIPJSPhone {
   }
   uiCallTerminated(s_description) {
     if (window.btnBFCP) window.btnBFCP.disabled = true;
-    this.ctxSip.stopRingTone();
+    ringToneStop();
     this.ctxSip.stopRingbackTone();
     if (this.callBackHandler && this.callBackHandler.onResponse) this.callBackHandler.onResponse("disconnected");
   }
@@ -7506,7 +7555,7 @@ class SIPJSPhone {
       this.ctxSip.phoneHoldButtonPressed(this.ctxSip.callActiveID);
     }
     this.ctxSip.stopRingbackTone();
-    this.ctxSip.stopRingTone();
+    ringToneStop();
     this.ctxSip.setCallSessionStatus('Answered');
     this.ctxSip.logCall(newSess, 'answered');
     this.ctxSip.callActiveID = newSess.ctxid;
@@ -7519,7 +7568,7 @@ class SIPJSPhone {
       this.webrtcSIPPhoneEventDelegate.stopCallStat();
       this.webrtcSIPPhoneEventDelegate.onCallStatSipJsSessionEvent('terminated');
     }
-    this.ctxSip.stopRingTone();
+    ringToneStop();
     this.ctxSip.stopRingbackTone();
     this.ctxSip.setCallSessionStatus("");
     this.ctxSip.callActiveID = null;
@@ -7637,6 +7686,50 @@ class SIPJSPhone {
 
 /***/ },
 
+/***/ "../webrtc-core-sdk/src/static/beep.wav"
+/*!**********************************************!*\
+  !*** ../webrtc-core-sdk/src/static/beep.wav ***!
+  \**********************************************/
+(module, __unused_webpack_exports, __webpack_require__) {
+
+"use strict";
+module.exports = __webpack_require__.p + "beep.wav";
+
+/***/ },
+
+/***/ "../webrtc-core-sdk/src/static/dtmf.wav"
+/*!**********************************************!*\
+  !*** ../webrtc-core-sdk/src/static/dtmf.wav ***!
+  \**********************************************/
+(module, __unused_webpack_exports, __webpack_require__) {
+
+"use strict";
+module.exports = __webpack_require__.p + "dtmf.wav";
+
+/***/ },
+
+/***/ "../webrtc-core-sdk/src/static/ringbacktone.wav"
+/*!******************************************************!*\
+  !*** ../webrtc-core-sdk/src/static/ringbacktone.wav ***!
+  \******************************************************/
+(module, __unused_webpack_exports, __webpack_require__) {
+
+"use strict";
+module.exports = __webpack_require__.p + "ringbacktone.wav";
+
+/***/ },
+
+/***/ "../webrtc-core-sdk/src/static/ringtone.wav"
+/*!**************************************************!*\
+  !*** ../webrtc-core-sdk/src/static/ringtone.wav ***!
+  \**************************************************/
+(module, __unused_webpack_exports, __webpack_require__) {
+
+"use strict";
+module.exports = __webpack_require__.p + "ringtone.wav";
+
+/***/ },
+
 /***/ "../webrtc-core-sdk/src/webrtcSIPPhone.js"
 /*!************************************************!*\
   !*** ../webrtc-core-sdk/src/webrtcSIPPhone.js ***!
@@ -7687,16 +7780,15 @@ class WebrtcSIPPhone {
 
     // Preserve noise suppression setting from existing phone instance if it exists
     const existingNoiseSuppression = this.phone?.enableNoiseSuppression;
-    const existingRingingDuration = this.phone?.ringingDurationSec;
+    // The ringing duration is module-level state in sipjsphone, so it
+    // survives a new phone instance on its own.
+
     switch (engine) {
       case "sipjs":
         this.phone = new _sipjsphone__WEBPACK_IMPORTED_MODULE_1__["default"](this.webrtcSIPPhoneEventDelegate, this.username);
         // Restore noise suppression setting if it was set on the previous instance
         if (existingNoiseSuppression) {
           this.phone.setNoiseSuppression(existingNoiseSuppression);
-        }
-        if (existingRingingDuration) {
-          this.phone.setRingingDuration(existingRingingDuration);
         }
         break;
       default:
@@ -7910,6 +8002,14 @@ class WebrtcSIPPhone {
     logger.log("webrtcSIPPhone: getRingingDuration");
     return this.phone.getRingingDuration();
   }
+  setRingToneAutoStart(enabled) {
+    logger.log("webrtcSIPPhone: setRingToneAutoStart: ", enabled);
+    return this.phone.setRingToneAutoStart(enabled);
+  }
+  getRingToneAutoStart() {
+    logger.log("webrtcSIPPhone: getRingToneAutoStart");
+    return this.phone.getRingToneAutoStart();
+  }
   startRingTone() {
     logger.log("webrtcSIPPhone: startRingTone");
     this.phone.startRingTone();
@@ -7993,14 +8093,6 @@ class WebrtcSIPPhoneEventDelegate {
     this.delegates.forEach(delegate => {
       if (delegate && typeof delegate.sendWebRTCEventsToFSM === 'function') {
         delegate.sendWebRTCEventsToFSM(eventType, sipMethod);
-      }
-    });
-  }
-  onWebSocketDisconnect(error) {
-    logger.log("webrtcSIPPhoneEventDelegate: onWebSocketDisconnect:", error);
-    this.delegates.forEach(delegate => {
-      if (delegate && typeof delegate.onWebSocketDisconnect === 'function') {
-        delegate.onWebSocketDisconnect(error);
       }
     });
   }
@@ -8159,6 +8251,188 @@ class WebrtcSIPPhoneEventDelegate {
   }
 }
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (WebrtcSIPPhoneEventDelegate);
+
+/***/ },
+
+/***/ "./node_modules/uuid/dist/esm-browser/native.js"
+/*!******************************************************!*\
+  !*** ./node_modules/uuid/dist/esm-browser/native.js ***!
+  \******************************************************/
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
+/* harmony export */ });
+const randomUUID = typeof crypto !== 'undefined' && crypto.randomUUID && crypto.randomUUID.bind(crypto);
+/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ({
+  randomUUID
+});
+
+/***/ },
+
+/***/ "./node_modules/uuid/dist/esm-browser/regex.js"
+/*!*****************************************************!*\
+  !*** ./node_modules/uuid/dist/esm-browser/regex.js ***!
+  \*****************************************************/
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
+/* harmony export */ });
+/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (/^(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|00000000-0000-0000-0000-000000000000)$/i);
+
+/***/ },
+
+/***/ "./node_modules/uuid/dist/esm-browser/rng.js"
+/*!***************************************************!*\
+  !*** ./node_modules/uuid/dist/esm-browser/rng.js ***!
+  \***************************************************/
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (/* binding */ rng)
+/* harmony export */ });
+// Unique ID creation requires a high quality random # generator. In the browser we therefore
+// require the crypto API and do not support built-in fallback to lower quality random number
+// generators (like Math.random()).
+let getRandomValues;
+const rnds8 = new Uint8Array(16);
+function rng() {
+  // lazy load so that environments that need to polyfill have a chance to do so
+  if (!getRandomValues) {
+    // getRandomValues needs to be invoked in a context where "this" is a Crypto implementation.
+    getRandomValues = typeof crypto !== 'undefined' && crypto.getRandomValues && crypto.getRandomValues.bind(crypto);
+
+    if (!getRandomValues) {
+      throw new Error('crypto.getRandomValues() not supported. See https://github.com/uuidjs/uuid#getrandomvalues-not-supported');
+    }
+  }
+
+  return getRandomValues(rnds8);
+}
+
+/***/ },
+
+/***/ "./node_modules/uuid/dist/esm-browser/stringify.js"
+/*!*********************************************************!*\
+  !*** ./node_modules/uuid/dist/esm-browser/stringify.js ***!
+  \*********************************************************/
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__),
+/* harmony export */   unsafeStringify: () => (/* binding */ unsafeStringify)
+/* harmony export */ });
+/* harmony import */ var _validate_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./validate.js */ "./node_modules/uuid/dist/esm-browser/validate.js");
+
+/**
+ * Convert array of 16 byte values to UUID string format of the form:
+ * XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
+ */
+
+const byteToHex = [];
+
+for (let i = 0; i < 256; ++i) {
+  byteToHex.push((i + 0x100).toString(16).slice(1));
+}
+
+function unsafeStringify(arr, offset = 0) {
+  // Note: Be careful editing this code!  It's been tuned for performance
+  // and works in ways you may not expect. See https://github.com/uuidjs/uuid/pull/434
+  return byteToHex[arr[offset + 0]] + byteToHex[arr[offset + 1]] + byteToHex[arr[offset + 2]] + byteToHex[arr[offset + 3]] + '-' + byteToHex[arr[offset + 4]] + byteToHex[arr[offset + 5]] + '-' + byteToHex[arr[offset + 6]] + byteToHex[arr[offset + 7]] + '-' + byteToHex[arr[offset + 8]] + byteToHex[arr[offset + 9]] + '-' + byteToHex[arr[offset + 10]] + byteToHex[arr[offset + 11]] + byteToHex[arr[offset + 12]] + byteToHex[arr[offset + 13]] + byteToHex[arr[offset + 14]] + byteToHex[arr[offset + 15]];
+}
+
+function stringify(arr, offset = 0) {
+  const uuid = unsafeStringify(arr, offset); // Consistency check for valid UUID.  If this throws, it's likely due to one
+  // of the following:
+  // - One or more input array values don't map to a hex octet (leading to
+  // "undefined" in the uuid)
+  // - Invalid input values for the RFC `version` or `variant` fields
+
+  if (!(0,_validate_js__WEBPACK_IMPORTED_MODULE_0__["default"])(uuid)) {
+    throw TypeError('Stringified UUID is invalid');
+  }
+
+  return uuid;
+}
+
+/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (stringify);
+
+/***/ },
+
+/***/ "./node_modules/uuid/dist/esm-browser/v4.js"
+/*!**************************************************!*\
+  !*** ./node_modules/uuid/dist/esm-browser/v4.js ***!
+  \**************************************************/
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
+/* harmony export */ });
+/* harmony import */ var _native_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./native.js */ "./node_modules/uuid/dist/esm-browser/native.js");
+/* harmony import */ var _rng_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./rng.js */ "./node_modules/uuid/dist/esm-browser/rng.js");
+/* harmony import */ var _stringify_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./stringify.js */ "./node_modules/uuid/dist/esm-browser/stringify.js");
+
+
+
+
+function v4(options, buf, offset) {
+  if (_native_js__WEBPACK_IMPORTED_MODULE_0__["default"].randomUUID && !buf && !options) {
+    return _native_js__WEBPACK_IMPORTED_MODULE_0__["default"].randomUUID();
+  }
+
+  options = options || {};
+  const rnds = options.random || (options.rng || _rng_js__WEBPACK_IMPORTED_MODULE_1__["default"])(); // Per 4.4, set bits for version and `clock_seq_hi_and_reserved`
+
+  rnds[6] = rnds[6] & 0x0f | 0x40;
+  rnds[8] = rnds[8] & 0x3f | 0x80; // Copy bytes to buffer, if provided
+
+  if (buf) {
+    offset = offset || 0;
+
+    for (let i = 0; i < 16; ++i) {
+      buf[offset + i] = rnds[i];
+    }
+
+    return buf;
+  }
+
+  return (0,_stringify_js__WEBPACK_IMPORTED_MODULE_2__.unsafeStringify)(rnds);
+}
+
+/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (v4);
+
+/***/ },
+
+/***/ "./node_modules/uuid/dist/esm-browser/validate.js"
+/*!********************************************************!*\
+  !*** ./node_modules/uuid/dist/esm-browser/validate.js ***!
+  \********************************************************/
+(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
+/* harmony export */ });
+/* harmony import */ var _regex_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./regex.js */ "./node_modules/uuid/dist/esm-browser/regex.js");
+
+
+function validate(uuid) {
+  return typeof uuid === 'string' && _regex_js__WEBPACK_IMPORTED_MODULE_0__["default"].test(uuid);
+}
+
+/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (validate);
 
 /***/ },
 
@@ -9287,10 +9561,10 @@ class RegisterCallback {
     this.registerState = state;
     this.phone = phone;
   };
-  triggerRegisterCallback = function (error) {
+  triggerRegisterCallback = function () {
     const callbackFunc = this.registerCallbackHandler;
     const state = this.registerState;
-    return callbackFunc(state, this.phone, error);
+    return callbackFunc(state, this.phone);
   };
 }
 /**
@@ -9556,11 +9830,6 @@ class ExDelegationHandler {
     } else if (sipMethod == "CALL") {
       this.exClient.callEventCallback(eventType, this.exClient.callFromNumber, this.exClient.call);
     }
-  }
-  onWebSocketDisconnect(error) {
-    logger.log("ExWebClient: onWebSocketDisconnect:", error);
-    this.exClient.registerCallback.initializeRegister("websocket_disconnected", this.exClient.userName);
-    this.exClient.registerCallback.triggerRegisterCallback(error);
   }
   playBeepTone() {
     logger.log("delegationHandler: playBeepTone\n");
@@ -10072,6 +10341,22 @@ class ExotelWebClient {
     }
     return this.webrtcSIPPhone.getRingingDuration();
   }
+  setRingToneAutoStart(enabled) {
+    logger.log(`ExWebClient: setRingToneAutoStart: ${enabled}`);
+    if (!this.webrtcSIPPhone) {
+      logger.warn("ExWebClient: setRingToneAutoStart: webrtcSIPPhone not initialized");
+      return false;
+    }
+    return this.webrtcSIPPhone.setRingToneAutoStart(enabled);
+  }
+  getRingToneAutoStart() {
+    logger.log("ExWebClient: getRingToneAutoStart");
+    if (!this.webrtcSIPPhone) {
+      logger.warn("ExWebClient: getRingToneAutoStart: webrtcSIPPhone not initialized");
+      return true;
+    }
+    return this.webrtcSIPPhone.getRingToneAutoStart();
+  }
   startRingTone() {
     logger.log("ExWebClient: startRingTone");
     if (!this.webrtcSIPPhone) {
@@ -10092,7 +10377,10 @@ class ExotelWebClient {
 logger.registerLoggerCallback((type, message, args) => {
   _api_LogManager_js__WEBPACK_IMPORTED_MODULE_10__["default"].onLog(type, message, args);
   if (ExotelWebClient.clientSDKLoggerCallback) {
-    ExotelWebClient.clientSDKLoggerCallback("log", message, args);
+    // Forward the real severity. This used to be hardcoded to "log", which
+    // meant an integrator's callback could not tell an SDK error from an
+    // ordinary log line and so could not filter or alert on failures.
+    ExotelWebClient.clientSDKLoggerCallback(type, message, args);
   }
 });
 
@@ -10307,232 +10595,6 @@ class SessionListener {
   }
 }
 
-/***/ },
-
-/***/ "./node_modules/uuid/dist/esm-browser/native.js"
-/*!******************************************************!*\
-  !*** ./node_modules/uuid/dist/esm-browser/native.js ***!
-  \******************************************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
-
-"use strict";
-__webpack_require__.r(__webpack_exports__);
-/* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
-/* harmony export */ });
-const randomUUID = typeof crypto !== 'undefined' && crypto.randomUUID && crypto.randomUUID.bind(crypto);
-/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ({
-  randomUUID
-});
-
-/***/ },
-
-/***/ "./node_modules/uuid/dist/esm-browser/regex.js"
-/*!*****************************************************!*\
-  !*** ./node_modules/uuid/dist/esm-browser/regex.js ***!
-  \*****************************************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
-
-"use strict";
-__webpack_require__.r(__webpack_exports__);
-/* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
-/* harmony export */ });
-/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (/^(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|00000000-0000-0000-0000-000000000000)$/i);
-
-/***/ },
-
-/***/ "./node_modules/uuid/dist/esm-browser/rng.js"
-/*!***************************************************!*\
-  !*** ./node_modules/uuid/dist/esm-browser/rng.js ***!
-  \***************************************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
-
-"use strict";
-__webpack_require__.r(__webpack_exports__);
-/* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "default": () => (/* binding */ rng)
-/* harmony export */ });
-// Unique ID creation requires a high quality random # generator. In the browser we therefore
-// require the crypto API and do not support built-in fallback to lower quality random number
-// generators (like Math.random()).
-let getRandomValues;
-const rnds8 = new Uint8Array(16);
-function rng() {
-  // lazy load so that environments that need to polyfill have a chance to do so
-  if (!getRandomValues) {
-    // getRandomValues needs to be invoked in a context where "this" is a Crypto implementation.
-    getRandomValues = typeof crypto !== 'undefined' && crypto.getRandomValues && crypto.getRandomValues.bind(crypto);
-
-    if (!getRandomValues) {
-      throw new Error('crypto.getRandomValues() not supported. See https://github.com/uuidjs/uuid#getrandomvalues-not-supported');
-    }
-  }
-
-  return getRandomValues(rnds8);
-}
-
-/***/ },
-
-/***/ "./node_modules/uuid/dist/esm-browser/stringify.js"
-/*!*********************************************************!*\
-  !*** ./node_modules/uuid/dist/esm-browser/stringify.js ***!
-  \*********************************************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
-
-"use strict";
-__webpack_require__.r(__webpack_exports__);
-/* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__),
-/* harmony export */   unsafeStringify: () => (/* binding */ unsafeStringify)
-/* harmony export */ });
-/* harmony import */ var _validate_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./validate.js */ "./node_modules/uuid/dist/esm-browser/validate.js");
-
-/**
- * Convert array of 16 byte values to UUID string format of the form:
- * XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX
- */
-
-const byteToHex = [];
-
-for (let i = 0; i < 256; ++i) {
-  byteToHex.push((i + 0x100).toString(16).slice(1));
-}
-
-function unsafeStringify(arr, offset = 0) {
-  // Note: Be careful editing this code!  It's been tuned for performance
-  // and works in ways you may not expect. See https://github.com/uuidjs/uuid/pull/434
-  return byteToHex[arr[offset + 0]] + byteToHex[arr[offset + 1]] + byteToHex[arr[offset + 2]] + byteToHex[arr[offset + 3]] + '-' + byteToHex[arr[offset + 4]] + byteToHex[arr[offset + 5]] + '-' + byteToHex[arr[offset + 6]] + byteToHex[arr[offset + 7]] + '-' + byteToHex[arr[offset + 8]] + byteToHex[arr[offset + 9]] + '-' + byteToHex[arr[offset + 10]] + byteToHex[arr[offset + 11]] + byteToHex[arr[offset + 12]] + byteToHex[arr[offset + 13]] + byteToHex[arr[offset + 14]] + byteToHex[arr[offset + 15]];
-}
-
-function stringify(arr, offset = 0) {
-  const uuid = unsafeStringify(arr, offset); // Consistency check for valid UUID.  If this throws, it's likely due to one
-  // of the following:
-  // - One or more input array values don't map to a hex octet (leading to
-  // "undefined" in the uuid)
-  // - Invalid input values for the RFC `version` or `variant` fields
-
-  if (!(0,_validate_js__WEBPACK_IMPORTED_MODULE_0__["default"])(uuid)) {
-    throw TypeError('Stringified UUID is invalid');
-  }
-
-  return uuid;
-}
-
-/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (stringify);
-
-/***/ },
-
-/***/ "./node_modules/uuid/dist/esm-browser/v4.js"
-/*!**************************************************!*\
-  !*** ./node_modules/uuid/dist/esm-browser/v4.js ***!
-  \**************************************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
-
-"use strict";
-__webpack_require__.r(__webpack_exports__);
-/* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
-/* harmony export */ });
-/* harmony import */ var _native_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./native.js */ "./node_modules/uuid/dist/esm-browser/native.js");
-/* harmony import */ var _rng_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./rng.js */ "./node_modules/uuid/dist/esm-browser/rng.js");
-/* harmony import */ var _stringify_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./stringify.js */ "./node_modules/uuid/dist/esm-browser/stringify.js");
-
-
-
-
-function v4(options, buf, offset) {
-  if (_native_js__WEBPACK_IMPORTED_MODULE_0__["default"].randomUUID && !buf && !options) {
-    return _native_js__WEBPACK_IMPORTED_MODULE_0__["default"].randomUUID();
-  }
-
-  options = options || {};
-  const rnds = options.random || (options.rng || _rng_js__WEBPACK_IMPORTED_MODULE_1__["default"])(); // Per 4.4, set bits for version and `clock_seq_hi_and_reserved`
-
-  rnds[6] = rnds[6] & 0x0f | 0x40;
-  rnds[8] = rnds[8] & 0x3f | 0x80; // Copy bytes to buffer, if provided
-
-  if (buf) {
-    offset = offset || 0;
-
-    for (let i = 0; i < 16; ++i) {
-      buf[offset + i] = rnds[i];
-    }
-
-    return buf;
-  }
-
-  return (0,_stringify_js__WEBPACK_IMPORTED_MODULE_2__.unsafeStringify)(rnds);
-}
-
-/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (v4);
-
-/***/ },
-
-/***/ "./node_modules/uuid/dist/esm-browser/validate.js"
-/*!********************************************************!*\
-  !*** ./node_modules/uuid/dist/esm-browser/validate.js ***!
-  \********************************************************/
-(__unused_webpack_module, __webpack_exports__, __webpack_require__) {
-
-"use strict";
-__webpack_require__.r(__webpack_exports__);
-/* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__)
-/* harmony export */ });
-/* harmony import */ var _regex_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./regex.js */ "./node_modules/uuid/dist/esm-browser/regex.js");
-
-
-function validate(uuid) {
-  return typeof uuid === 'string' && _regex_js__WEBPACK_IMPORTED_MODULE_0__["default"].test(uuid);
-}
-
-/* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (validate);
-
-/***/ },
-
-/***/ "../webrtc-core-sdk/src/static/beep.wav"
-/*!**********************************************!*\
-  !*** ../webrtc-core-sdk/src/static/beep.wav ***!
-  \**********************************************/
-(module, __unused_webpack_exports, __webpack_require__) {
-
-"use strict";
-module.exports = __webpack_require__.p + "beep.wav";
-
-/***/ },
-
-/***/ "../webrtc-core-sdk/src/static/dtmf.wav"
-/*!**********************************************!*\
-  !*** ../webrtc-core-sdk/src/static/dtmf.wav ***!
-  \**********************************************/
-(module, __unused_webpack_exports, __webpack_require__) {
-
-"use strict";
-module.exports = __webpack_require__.p + "dtmf.wav";
-
-/***/ },
-
-/***/ "../webrtc-core-sdk/src/static/ringbacktone.wav"
-/*!******************************************************!*\
-  !*** ../webrtc-core-sdk/src/static/ringbacktone.wav ***!
-  \******************************************************/
-(module, __unused_webpack_exports, __webpack_require__) {
-
-"use strict";
-module.exports = __webpack_require__.p + "ringbacktone.wav";
-
-/***/ },
-
-/***/ "../webrtc-core-sdk/src/static/ringtone.wav"
-/*!**************************************************!*\
-  !*** ../webrtc-core-sdk/src/static/ringtone.wav ***!
-  \**************************************************/
-(module, __unused_webpack_exports, __webpack_require__) {
-
-"use strict";
-module.exports = __webpack_require__.p + "ringtone.wav";
-
 /***/ }
 
 /******/ 	});
@@ -10547,6 +10609,12 @@ module.exports = __webpack_require__.p + "ringtone.wav";
 /******/ 		if (cachedModule !== undefined) {
 /******/ 			return cachedModule.exports;
 /******/ 		}
+/******/ 		// Check if module exists (development only)
+/******/ 		if (__webpack_modules__[moduleId] === undefined) {
+/******/ 			var e = new Error("Cannot find module '" + moduleId + "'");
+/******/ 			e.code = 'MODULE_NOT_FOUND';
+/******/ 			throw e;
+/******/ 		}
 /******/ 		// Create a new module (and put it into the cache)
 /******/ 		var module = __webpack_module_cache__[moduleId] = {
 /******/ 			// no module.id needed
@@ -10555,12 +10623,6 @@ module.exports = __webpack_require__.p + "ringtone.wav";
 /******/ 		};
 /******/ 	
 /******/ 		// Execute the module function
-/******/ 		if (!(moduleId in __webpack_modules__)) {
-/******/ 			delete __webpack_module_cache__[moduleId];
-/******/ 			var e = new Error("Cannot find module '" + moduleId + "'");
-/******/ 			e.code = 'MODULE_NOT_FOUND';
-/******/ 			throw e;
-/******/ 		}
 /******/ 		__webpack_modules__[moduleId].call(module.exports, module, module.exports, __webpack_require__);
 /******/ 	
 /******/ 		// Return the exports of the module
