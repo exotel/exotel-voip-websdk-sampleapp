@@ -228,11 +228,19 @@ Incoming calls arrive on `CallListenerCallback`.
 
 | Param | Type | Values |
 | --- | --- | --- |
-| `callObj` | Object | `{ callId, callState, callDirection, callStartedTime, remoteDisplayName }` |
+| `callObj` | Object | `{ callId, callState, callDirection, callStartedTime, remoteDisplayName, callSid, legSid, sipHeaders, ... }` |
 | `eventType` | String | `incoming` / `connected` / `callEnded` / `activeSession` |
 | `phone` | String | Username identifying the receiving phone |
 
 `callId` is the SIP Call-ID; `callStartedTime` the start time; `remoteDisplayName` the caller name.
+
+**[VST-2017]** `callObj` also carries `callSid` and `legSid` — read off the `X-Exotel-CallSid` /
+`X-Exotel-LegSid` INVITE headers, so `callObj.callSid` ties the WebRTC leg back to the AppServer
+call — plus `sipHeaders`, every header on the INVITE. Use `callObj.sipHeaders['X-Exotel-Callsid']`,
+not `'X-Exotel-CallSid'`: SIP.js title-cases each dash segment when it stores the header, so the
+mixed-case key from the wire is never present. Prefer the dedicated `callSid` / `legSid` fields
+over reading `sipHeaders` directly. Ships in client-sdk **v3.0.15** (core-sdk v3.0.13) — merged to
+`master`, not yet published to npm at the time of writing; this sample app still bundles v3.0.14.
 
 ```js
 function CallListenerCallback(callObj, eventType, phone) {
