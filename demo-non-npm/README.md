@@ -261,16 +261,33 @@ Incoming calls arrive on `CallListenerCallback`.
 
 | Param | Type | Values |
 | --- | --- | --- |
-| `callObj` | Object | `{ callId, callState, callDirection, callStartedTime, remoteDisplayName }` |
+| `callObj` | Object | `{ callId, callState, callDirection, callStartedTime, remoteDisplayName, callSid, legSid, sipHeaders, ... }` |
 | `eventType` | String | `incoming` / `connected` / `callEnded` / `activeSession` |
 | `phone` | String | Username identifying the receiving phone |
 
 `callId` is the SIP Call-ID; `callStartedTime` the start time; `remoteDisplayName` the caller name.
 
+**[VST-2017]** `callObj` also carries `callSid` and `legSid` — read off the `X-Exotel-CallSid` /
+`X-Exotel-LegSid` INVITE headers, so `callObj.callSid` ties the WebRTC leg back to the AppServer
+call — plus `sipHeaders`, every header on the INVITE. Ships in client-sdk **v3.0.15** (core-sdk
+v3.0.13) — merged to `master`, not yet published to npm at the time of writing; this sample app
+still bundles v3.0.14.
+
 ```js
 function CallListenerCallback(callObj, eventType, phone) {
   if (eventType === 'incoming') {
     setCallComing(true);
+
+    // callSid / legSid are already parsed for you — prefer these over sipHeaders.
+    const { callSid, legSid, sipHeaders } = callObj;
+    console.log('callSid:', callSid, 'legSid:', legSid);
+
+    // Reading a header directly from sipHeaders? SIP.js title-cases each dash
+    // segment when it stores the header, so the wire's mixed-case name is
+    // never present as a key. This looks up 'X-Exotel-CallSid' and misses:
+    console.log(sipHeaders['X-Exotel-CallSid']);  // undefined
+    // The stored key is 'X-Exotel-Callsid' (lowercase "sid"):
+    console.log(sipHeaders['X-Exotel-Callsid']);  // matches callObj.callSid
   } else if (eventType === 'connected') {
     setCallComing(false);
     setCallState(true);
