@@ -269,16 +269,25 @@ Incoming calls arrive on `CallListenerCallback`.
 
 **[VST-2017]** `callObj` also carries `callSid` and `legSid` — read off the `X-Exotel-CallSid` /
 `X-Exotel-LegSid` INVITE headers, so `callObj.callSid` ties the WebRTC leg back to the AppServer
-call — plus `sipHeaders`, every header on the INVITE. Use `callObj.sipHeaders['X-Exotel-Callsid']`,
-not `'X-Exotel-CallSid'`: SIP.js title-cases each dash segment when it stores the header, so the
-mixed-case key from the wire is never present. Prefer the dedicated `callSid` / `legSid` fields
-over reading `sipHeaders` directly. Ships in client-sdk **v3.0.15** (core-sdk v3.0.13) — merged to
-`master`, not yet published to npm at the time of writing; this sample app still bundles v3.0.14.
+call — plus `sipHeaders`, every header on the INVITE. Ships in client-sdk **v3.0.15** (core-sdk
+v3.0.13) — merged to `master`, not yet published to npm at the time of writing; this sample app
+still bundles v3.0.14.
 
 ```js
 function CallListenerCallback(callObj, eventType, phone) {
   if (eventType === 'incoming') {
     setCallComing(true);
+
+    // callSid / legSid are already parsed for you — prefer these over sipHeaders.
+    const { callSid, legSid, sipHeaders } = callObj;
+    console.log('callSid:', callSid, 'legSid:', legSid);
+
+    // Reading a header directly from sipHeaders? SIP.js title-cases each dash
+    // segment when it stores the header, so the wire's mixed-case name is
+    // never present as a key. This looks up 'X-Exotel-CallSid' and misses:
+    console.log(sipHeaders['X-Exotel-CallSid']);  // undefined
+    // The stored key is 'X-Exotel-Callsid' (lowercase "sid"):
+    console.log(sipHeaders['X-Exotel-Callsid']);  // matches callObj.callSid
   } else if (eventType === 'connected') {
     setCallComing(false);
     setCallState(true);
