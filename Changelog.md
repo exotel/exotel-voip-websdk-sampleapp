@@ -1,5 +1,10 @@
 Changelog
 
+## v3.0.16 15 September, 2026
+-[VST-1150] Refactor callback handling in webrtc-client-sdk to include error parameter in session callbacks. Update ExWebClient to trigger session callbacks with error information on WebSocket disconnect. Modify SIPJSPhone to improve error message handling during disconnection events.
+-[VST-2187] Added auto-retry for the WebRTC connection: enableAutoRetry()/disableAutoRetry() toggle the policy (enabled by default); on a transport failure, or a silent network drop surfaced as a registration-expiry "unregistered" event, the SDK automatically re-registers after a fixed 5s delay, repeating until it succeeds or auto-retry is disabled
+-[VST-2187] disableAutoRetry() now also stops a retry that is already armed for the current session, not just future ones
+
 ## v3.0.14 08 September, 2026
 -[VST-1782] Expose setRingingDuration, getRingingDuration on ExotelWebClient (default ring 30 sec)
 -[VST-2016] Expose startRingTone and stopRingTone on ExotelWebClient
