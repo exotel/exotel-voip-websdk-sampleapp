@@ -31,7 +31,7 @@ Using npm instead? See [`../demo-npm/README.md`](../demo-npm/README.md).
    - [6.11 Send DTMF](#611-send-dtmf)
    - [6.12 Multitab scenarios](#612-multitab-scenarios)
    - [6.13 Device and network diagnostics](#613-device-and-network-diagnostics)
-   - [6.14 Auto reconnect](#614-auto-reconnect)
+   - [6.14 Auto retry](#614-auto-retry)
    - [6.15 Check SDK readiness](#615-check-sdk-readiness)
    - [6.16 Audio device selection](#616-audio-device-selection)
    - [6.17 Noise suppression](#617-noise-suppression)
@@ -490,35 +490,25 @@ Results arrive on the key/value callback:
 | `host` | connected / disconnected | ICE candidate for host (local facing) |
 | `srflx` | connected / disconnected | ICE candidate for reflexive (remote facing) |
 
-### 6.14 Auto reconnect
+### 6.14 Auto retry
 
-WebSockets drop on network trouble; the application decides whether to retry. Track a
-`shouldAutoRetry` flag, set it on register and clear it on explicit unregister, then re-register
-from the callback.
+The SDK retries registration on its own after a dropped connection — a transport
+failure, or a silent network drop that surfaces as a registration-expiry event. Enabled by
+default, at a fixed 5s interval, until it succeeds or auto-retry is turned off. No app-side
+retry loop is needed; `RegisterEventCallBack` just reports each attempt as it happens.
+
+| API | Args | Description |
+| --- | --- | --- |
+| `ExotelWebClient.enableAutoRetry` | None | Turn auto-retry on (the default). Takes effect from the next `DoRegister()`. |
+| `ExotelWebClient.disableAutoRetry` | None | Turn auto-retry off, including a retry already scheduled for the current session. |
 
 ```js
-let shouldAutoRetry = false;
-
-function registerToggle() {
-  if (document.getElementById('registerButton').innerHTML === 'REGISTER') {
-    shouldAutoRetry = true;
-    UserAgentRegistration();
-  } else {
-    shouldAutoRetry = false;
-    exWebClient.UnRegister();
-  }
-}
-
-function RegisterEventCallBack(state, sipInfo, error) {
-  document.getElementById('status').innerHTML = state;
-  if (state === 'registered') {
-    document.getElementById('registerButton').innerHTML = 'UNREGISTER';
-  } else {
-    document.getElementById('registerButton').innerHTML = 'REGISTER';
-    if (shouldAutoRetry) { exWebClient.DoRegister(); }
-  }
-}
+exWebClient.disableAutoRetry();   // opt out
+exWebClient.enableAutoRetry();    // opt back in
 ```
+
+`UnRegister()` does not disable auto-retry — a later `DoRegister()` still retries on failure
+unless `disableAutoRetry()` was called explicitly.
 
 ### 6.15 Check SDK readiness
 
