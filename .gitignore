@@ -14,3 +14,8 @@ demo-non-npm/lptest
 
 # Local build backups
 demo-non-npm/dist.bak-*
+
+# Local TLS material for demo HTTPS (generate with openssl; see demo-non-npm/README.md)
+*.pem
+demo-non-npm/key.pem
+demo-non-npm/cert.pem
