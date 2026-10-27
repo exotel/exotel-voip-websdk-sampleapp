@@ -1,4 +1,6 @@
 Changelog
+## v3.0.16 15 September, 2026
+-[VST-2516] Sync the Flutter sample app with the latest SDK (v1.0.72) — includes RTP packet metrics support
 
 ## v3.0.16 15 September, 2026
 -[VST-1150] Refactor callback handling in webrtc-client-sdk to include error parameter in session callbacks. Update ExWebClient to trigger session callbacks with error information on WebSocket disconnect. Modify SIPJSPhone to improve error message handling during disconnection events.
